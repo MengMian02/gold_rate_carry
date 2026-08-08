@@ -21,7 +21,7 @@ import numpy as np
 import pandas as pd
 
 _MERGED_CACHE = (
-    Path(__file__).resolve().parent.parent / "outputs" / "data" / "merged.csv"
+    Path(__file__).resolve().parent.parent / "data" / "merged.csv"
 )
 
 # Heuristic threshold for the GLD-gap sanity check (step 2b). Between two
@@ -42,7 +42,7 @@ def clean_and_merge(gld_df: pd.DataFrame, dfii10_df: pd.DataFrame) -> pd.DataFra
     ``dfii10_forward_filled`` marks any row where the DFII10 value was carried
     forward from an earlier publication (a calendar gap or an in-series NaN),
     rather than being a direct same-day observation. Caches the result to
-    ``outputs/data/merged.csv``.
+    ``data/merged.csv``.
     """
     gld = gld_df.sort_index()
     dfii = dfii10_df.sort_index()

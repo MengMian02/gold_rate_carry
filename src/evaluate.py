@@ -22,9 +22,9 @@ import numpy as np
 import pandas as pd
 import quantstats as qs
 
-import backtest
-import costs
-import signals
+from . import backtest
+from . import costs
+from . import signals
 
 _RANDOM_SEED = 42                 # fixed for reproducible random-benchmark draws
 _TRADING_DAYS_PER_YEAR = 252

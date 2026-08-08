@@ -14,12 +14,16 @@ env/
 # Jupyter
 .ipynb_checkpoints/
 
-# Generated artifacts under outputs/ (regenerated on every run)
-outputs/data/
-outputs/audit_flags.md
-outputs/audit_flags_gld.csv
-outputs/audit_flags_dfii10.csv
-outputs/report.html
+# Data: regenerable / generated (data/raw/DFII10.csv and data/decisions.md ARE tracked)
+data/raw/gld_raw.csv
+data/merged.csv
+
+# Results: all generated on every run
+result/*
+!result/.gitkeep
+
+# Local working notes
+memo.md
 
 # Local Claude Code project instructions (not shared)
 /CLAUDE.md

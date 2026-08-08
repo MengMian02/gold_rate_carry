@@ -2,7 +2,7 @@
 
 Thin companion to audit.py: it takes the dicts returned by ``audit_gld()`` and
 ``audit_dfii10()`` *together with the source frames that were audited*, and
-renders them into human-readable files under ``outputs/``. For every flagged
+renders them into human-readable files under ``result/``. For every flagged
 date it reports the full underlying row (OHLCV for GLD, the value for DFII10),
 so each flag can be checked and verified directly against the raw data.
 
@@ -22,7 +22,7 @@ from pathlib import Path
 import pandas as pd
 
 # Relative output paths are anchored to the repo root (parent of data/), so the
-# report always lands in the project's outputs/ regardless of the caller's cwd
+# report always lands in the project's result/ regardless of the caller's cwd
 # -- matching loaders.py's caching convention. Absolute paths are used as given.
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -213,9 +213,9 @@ def write_audit_report(
     dfii10_result: dict,
     gld_df: pd.DataFrame,
     dfii10_df: pd.DataFrame,
-    output_dir: str = "outputs/",
+    output_dir: str = "result/",
 ) -> None:
-    """Render audit results to ``outputs/audit_flags.md`` (+ per-series CSVs).
+    """Render audit results to ``result/audit_flags.md`` (+ per-series CSVs).
 
     ``gld_df`` and ``dfii10_df`` are the same frames that were passed to
     ``audit_gld()`` / ``audit_dfii10()``; each flagged date is joined back to its

@@ -1,9 +1,9 @@
 """Raw data retrieval only. Everything is stored/read as CSV.
 
 fetch_gld()   -> pulls the raw GLD OHLCV series from yfinance (live) and caches
-                 it to ``outputs/data/raw/gld_raw.csv``.
+                 it to ``data/raw/gld_raw.csv``.
 load_dfii10() -> reads the raw DFII10 real-yield series from the manually
-                 downloaded ``outputs/data/raw/DFII10.csv`` (FRED series DFII10).
+                 downloaded ``data/raw/DFII10.csv`` (FRED series DFII10).
 
 Both return a DataFrame indexed by a ``date`` DatetimeIndex with standardized
 column name(s). "Raw" means values are passed through unchanged -- only column
@@ -24,8 +24,8 @@ import pandas as pd
 
 import yfinance as yf
 
-# outputs/data/raw/ resolved relative to the repo root, independent of cwd.
-_RAW_DIR = Path(__file__).resolve().parent.parent / "outputs" / "data" / "raw"
+# data/raw/ resolved relative to the repo root, independent of cwd.
+_RAW_DIR = Path(__file__).resolve().parent.parent / "data" / "raw"
 _GLD_CACHE = _RAW_DIR / "gld_raw.csv"
 # DFII10 is downloaded manually from FRED and dropped in the same folder.
 _DFII10_CSV = _RAW_DIR / "DFII10.csv"
@@ -38,7 +38,7 @@ def fetch_gld(start: str, end: str, force_refresh: bool = False) -> pd.DataFrame
     ``open, high, low, close, adj_close, volume`` exactly as returned by the
     source -- no forward-fill, no dropping, no other modification.
 
-    Cached to ``outputs/data/raw/gld_raw.csv``. Set ``force_refresh=True`` to
+    Cached to ``data/raw/gld_raw.csv``. Set ``force_refresh=True`` to
     bypass the cache and re-pull. The cache is keyed only by series (fixed
     filename), not by date range -- use ``force_refresh`` when changing
     ``start``/``end``.
@@ -84,7 +84,7 @@ def load_dfii10() -> pd.DataFrame:
     DFII10 is the 10-Year Treasury Inflation-Indexed Security, Constant Maturity.
     It is not pulled programmatically -- it is downloaded manually from FRED
     (https://fred.stlouisfed.org/series/DFII10) and saved to
-    ``outputs/data/raw/DFII10.csv`` with columns ``observation_date`` and
+    ``data/raw/DFII10.csv`` with columns ``observation_date`` and
     ``DFII10``.
 
     Returns a DataFrame indexed by ``date`` with a single column

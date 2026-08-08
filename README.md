@@ -6,24 +6,30 @@ step is reproducible and every data change is documented.
 
 ## Layout
 
+Three top-level folders — code, data, results:
+
 ```
 gold_rate_carry/
+├── src/                  # all source code (import as a package: `from src import ...`)
+│   ├── loaders.py        # raw retrieval (GLD via yfinance; DFII10 from manual FRED CSV)
+│   ├── audit.py          # read-only anomaly diagnostics (no fixes)
+│   ├── report_audit.py   # formats audit results into result/audit_flags.md + CSVs
+│   ├── clean.py          # DFII10 T+1 alignment + calendar merge onto GLD
+│   ├── signals.py        # compute_signal + apply_monthly_rebalance
+│   ├── costs.py          # cost drag model (bps + expense ratio)
+│   ├── backtest.py       # signal-agnostic engine -> equity curve + trade log
+│   ├── evaluate.py       # grid runner, OOS, regime split, block bootstrap
+│   └── report.py         # self-contained HTML report (not yet implemented)
 ├── data/
-│   ├── loaders.py      # raw retrieval only (GLD via yfinance; DFII10 from manual FRED CSV)
-│   ├── audit.py        # read-only anomaly diagnostics (no fixes)
-│   ├── report_audit.py # formats audit results into audit_flags.md + CSVs (display only)
-│   ├── decisions.md    # human paper trail for every data change
-│   └── clean.py        # applies ONLY documented fixes + T+1 DFII10 alignment
-├── signals.py          # compute_signal(df, lookback) + apply_monthly_rebalance (named signals to avoid the stdlib `signal` clash)
-├── costs.py            # cost drag model (bps + expense ratio)
-├── backtest.py         # signal-agnostic engine -> equity curve + trade log
-├── evaluate.py         # metrics, grid runner, regime splits, block bootstrap
-├── report.py           # renders self-contained HTML report
-├── notebooks/main.ipynb# orchestration only, in narrative order
-├── outputs/            # report.html + data/ snapshots (gitignored)
-├── memo.md             # thesis / risks / persistence
-├── source_note.md      # every source, ticker, frequency, caveat
-└── requirements.txt
+│   ├── raw/
+│   │   ├── DFII10.csv     # manual FRED download (tracked)
+│   │   └── gld_raw.csv    # yfinance cache (gitignored, regenerable)
+│   ├── merged.csv         # clean.py output (gitignored)
+│   └── decisions.md       # human paper trail for every data change (tracked)
+├── result/               # generated audit_flags.* / report.html (gitignored)
+├── source_note.md        # every source, ticker, frequency, caveat
+├── requirements.txt
+└── README.md
 ```
 
 ## Design principles
@@ -31,20 +37,23 @@ gold_rate_carry/
 - **One responsibility per file.** Loading, auditing, and cleaning never mix.
 - **No lookahead bias.** DFII10 is aligned T+1 to its publication date in `clean.py`.
 - **Auditable data changes.** `audit.py` only flags; fixes must be recorded in
-  `decisions.md` before `clean.py` may apply them.
+  `data/decisions.md` before `clean.py` may apply them.
 - **Reusable engine.** `backtest.py` and `evaluate.py` are asset- and
   strategy-agnostic.
 
 ## Data
 
-Both series are stored as CSV under `outputs/data/raw/` (gitignored):
+Both series are stored as CSV under `data/`:
 
 - **GLD** — pulled live via yfinance by `loaders.fetch_gld()` and cached to
-  `gld_raw.csv`. No credentials required.
+  `data/raw/gld_raw.csv` (gitignored, regenerable). No credentials required.
 - **DFII10** — downloaded **manually** from FRED
   ([series DFII10](https://fred.stlouisfed.org/series/DFII10)) and saved as
-  `outputs/data/raw/DFII10.csv` (native columns `observation_date`, `DFII10`).
-  `loaders.load_dfii10()` reads it and raises clearly if the file is missing.
+  `data/raw/DFII10.csv` (native columns `observation_date`, `DFII10`). This file
+  **is tracked** (public-domain FRED data) so the repo is reproducible without a
+  manual re-download. `loaders.load_dfii10()` raises clearly if it is missing.
+- **merged** — `clean.py` writes the aligned/merged frame to `data/merged.csv`
+  (gitignored, regenerable).
 
 There are **no required environment variables** — DFII10 is a manual file, so no
 API key is needed.
@@ -57,7 +66,20 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+## Usage
+
+Run the pipeline by importing the package from the repo root, e.g.:
+
+```python
+from src import loaders, clean, evaluate
+gld = loaders.fetch_gld("2004-11-01", "2026-08-07")
+dfii = loaders.load_dfii10()
+merged = clean.clean_and_merge(gld, dfii)
+grid = evaluate.run_parameter_grid(merged)
+```
+
 ## Status
 
-Data-loading and read-only audit stages implemented; cleaning, signal, backtest,
-and evaluation stages not yet built.
+Data loading, audit, cleaning, signal, costs, backtest, and evaluation
+(parameter grid / OOS / regime split / block bootstrap) implemented. The HTML
+report (`src/report.py`) is not yet built.

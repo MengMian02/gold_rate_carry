@@ -31,7 +31,7 @@ in this file, it does not happen in the data.
 Determinations provided by the repo owner on 2026-08-08, recorded here as the
 paper trail. Reviewed against the audit run over **GLD 2004-11-18 → 2026-08-06**
 (yfinance, `gld_raw.csv`) and **DFII10 2003-01-02 → 2026-08-06** (manual FRED CSV,
-`DFII10.csv`). Full flag lists: `outputs/audit_flags.md` and the per-series
+`DFII10.csv`). Full flag lists: `result/audit_flags.md` and the per-series
 `audit_flags_gld.csv` / `audit_flags_dfii10.csv` snapshots.
 
 **DFII10 — `stale_value` (131 flags)**
