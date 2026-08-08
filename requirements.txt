@@ -3,9 +3,7 @@ pandas
 numpy
 
 # Data sources
-yfinance            # GLD prices
-fredapi             # FRED (DFII10) real yield
-pyarrow             # parquet engine for raw-pull caching
+yfinance            # GLD prices (DFII10 is a manual FRED CSV download, no package needed)
 
 # Evaluation / stats
 scipy               # block bootstrap, significance testing

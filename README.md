@@ -9,8 +9,9 @@ step is reproducible and every data change is documented.
 ```
 gold_rate_carry/
 ├── data/
-│   ├── loaders.py      # raw pulls only (GLD via yfinance, DFII10 via FRED)
+│   ├── loaders.py      # raw retrieval only (GLD via yfinance; DFII10 from manual FRED CSV)
 │   ├── audit.py        # read-only anomaly diagnostics (no fixes)
+│   ├── report_audit.py # formats audit results into audit_flags.md + CSVs (display only)
 │   ├── decisions.md    # human paper trail for every data change
 │   └── clean.py        # applies ONLY documented fixes + T+1 DFII10 alignment
 ├── signal.py           # real_yield_momentum(df, lookback) -> weight series
@@ -34,6 +35,20 @@ gold_rate_carry/
 - **Reusable engine.** `backtest.py` and `evaluate.py` are asset- and
   strategy-agnostic.
 
+## Data
+
+Both series are stored as CSV under `outputs/data/raw/` (gitignored):
+
+- **GLD** — pulled live via yfinance by `loaders.fetch_gld()` and cached to
+  `gld_raw.csv`. No credentials required.
+- **DFII10** — downloaded **manually** from FRED
+  ([series DFII10](https://fred.stlouisfed.org/series/DFII10)) and saved as
+  `outputs/data/raw/DFII10.csv` (native columns `observation_date`, `DFII10`).
+  `loaders.load_dfii10()` reads it and raises clearly if the file is missing.
+
+There are **no required environment variables** — DFII10 is a manual file, so no
+API key is needed.
+
 ## Setup
 
 ```bash
@@ -44,4 +59,5 @@ pip install -r requirements.txt
 
 ## Status
 
-Scaffold only — modules contain docstrings and interfaces, no implementation yet.
+Data-loading and read-only audit stages implemented; cleaning, signal, backtest,
+and evaluation stages not yet built.
