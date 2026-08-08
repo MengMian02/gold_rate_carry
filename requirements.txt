@@ -7,6 +7,7 @@ yfinance            # GLD prices (DFII10 is a manual FRED CSV download, no packa
 
 # Evaluation / stats
 scipy               # block bootstrap, significance testing
+quantstats          # performance metrics (Sharpe, drawdown, CAGR, etc.)
 
 # Charts + report rendering
 matplotlib
