@@ -14,8 +14,12 @@ env/
 # Jupyter
 .ipynb_checkpoints/
 
-# Generated report is fine to keep; raw data snapshots may be large
+# Generated artifacts under outputs/ (regenerated on every run)
 outputs/data/
+outputs/audit_flags.md
+outputs/audit_flags_gld.csv
+outputs/audit_flags_dfii10.csv
+outputs/report.html
 
 # OS / editor cruft
 .DS_Store
