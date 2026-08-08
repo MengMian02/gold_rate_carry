@@ -1,0 +1,17 @@
+# Core data + numerics
+pandas
+numpy
+
+# Data sources
+yfinance            # GLD prices
+pandas-datareader   # FRED (DFII10)
+
+# Evaluation / stats
+scipy               # block bootstrap, significance testing
+
+# Charts + report rendering
+matplotlib
+jinja2              # HTML report templating
+
+# Notebook
+jupyter
