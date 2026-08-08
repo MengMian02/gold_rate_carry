@@ -250,3 +250,41 @@ def run_oos_confirmation(
     )
 
     return {"oos_metrics": oos_metrics, "random_benchmark": random_benchmark}
+
+
+def run_regime_split(
+    merged_df: pd.DataFrame,
+    winning_lookback: int,
+    regime_1=("2008-01-01", "2021-12-31"),
+    regime_2=("2022-01-01", "2024-12-31"),
+    n_random_draws: int = 500,
+    seed: int = _RANDOM_SEED,
+) -> dict:
+    """Compare the winning lookback across two date regimes.
+
+    The full pipeline (signal on the FULL range with real burn-in -> monthly
+    rebalance -> backtest -> costs) is run ONCE; the resulting output is then
+    filtered to each regime separately for metrics and its exposure-matched
+    random benchmark. Metrics and the benchmark use the SAME shared helpers --
+    hence the SAME QuantStats conventions -- as run_parameter_grid and
+    run_oos_confirmation, for direct comparability.
+
+    Returns:
+        {"regime_1": {"metrics": {...}, "random_benchmark": {...}},
+         "regime_2": {"metrics": {...}, "random_benchmark": {...}}}
+    """
+    # Run the actual strategy pipeline once; both regimes filter this same output.
+    positions, res = _run_pipeline(merged_df, winning_lookback, costs.build_cost_fn())
+
+    def _one_regime(window) -> dict:
+        start, end = window
+        metrics = _is_metrics(positions, res, start, end)
+        benchmark = _random_benchmark(
+            merged_df, positions, metrics["sharpe"], start, end, n_random_draws, seed=seed
+        )
+        return {"metrics": metrics, "random_benchmark": benchmark}
+
+    return {
+        "regime_1": _one_regime(regime_1),
+        "regime_2": _one_regime(regime_2),
+    }
