@@ -104,13 +104,16 @@ def _random_benchmark(
     is_start: str,
     is_end: str,
     n_random_draws: int,
+    seed: int = _RANDOM_SEED,
 ) -> dict:
-    """Compare the winner's IS Sharpe to random month-level position draws.
+    """Compare the actual strategy's Sharpe to random month-level position draws.
 
-    Each draw holds the SAME number of "on" calendar months as the winning
-    strategy, chosen uniformly at random from the IS months (month-level, to
-    match the monthly rebalance granularity), then goes through the identical
-    backtest + cost pipeline. IS Sharpe is computed the same way as the actual.
+    Each draw holds the SAME number of "on" calendar months as the actual
+    strategy over [is_start, is_end], chosen uniformly at random from that
+    window's months (month-level, to match the monthly rebalance granularity),
+    then goes through the identical backtest + cost pipeline. Sharpe is computed
+    the same way as the actual. Used for both the IS grid winner and the OOS
+    confirmation, so the two are directly comparable.
     """
     prices = merged_df[_PRICE_COLUMN]
     idx = merged_df.index
@@ -126,7 +129,7 @@ def _random_benchmark(
     month_pos = win_is.groupby(win_is.index.to_period("M")).max()
     on_count = int((month_pos == 1.0).sum())
 
-    rng = np.random.default_rng(_RANDOM_SEED)
+    rng = np.random.default_rng(seed)
     month_arr = np.array(list(unique_months), dtype=object)
 
     draws = np.empty(n_random_draws, dtype=float)
@@ -150,7 +153,7 @@ def _random_benchmark(
         "percentile": float(percentile),
         "on_count": on_count,
         "total_months": int(total_months),
-        "seed": _RANDOM_SEED,
+        "seed": int(seed),
     }
 
 
@@ -204,3 +207,46 @@ def run_parameter_grid(
         "selection": selection,
         "random_benchmark": random_benchmark,
     }
+
+
+def run_oos_confirmation(
+    merged_df: pd.DataFrame,
+    winning_lookback: int,
+    oos_start: str = "2017-01-01",
+    oos_end=None,
+    n_random_draws: int = 500,
+    seed: int = _RANDOM_SEED,
+) -> dict:
+    """Out-of-sample confirmation of the IS-selected lookback.
+
+    Runs the SAME pipeline as run_parameter_grid for a single (already-chosen)
+    lookback, computes the SAME metric set with the SAME QuantStats
+    conventions (via the shared _is_metrics helper), and runs the SAME
+    exposure-matched random benchmark (via the shared _random_benchmark helper)
+    -- but on the OOS window [oos_start, oos_end] instead of the IS window.
+
+    ``oos_end=None`` uses the last available date in merged_df. The signal is
+    computed on the FULL merged range (burn-in uses real data, not truncated);
+    only the resulting daily returns are filtered to the OOS window before any
+    metric is computed. No lookback re-selection happens here -- the winning
+    lookback is taken as given.
+
+    Returns {"oos_metrics": {...}, "random_benchmark": {...}}.
+    """
+    if oos_end is None:
+        oos_end = merged_df.index.max()
+
+    positions, res = _run_pipeline(merged_df, winning_lookback, costs.build_cost_fn())
+    oos_metrics = _is_metrics(positions, res, oos_start, oos_end)
+
+    random_benchmark = _random_benchmark(
+        merged_df,
+        positions,
+        oos_metrics["sharpe"],
+        oos_start,
+        oos_end,
+        n_random_draws,
+        seed=seed,
+    )
+
+    return {"oos_metrics": oos_metrics, "random_benchmark": random_benchmark}
