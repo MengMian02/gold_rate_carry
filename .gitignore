@@ -21,6 +21,9 @@ outputs/audit_flags_gld.csv
 outputs/audit_flags_dfii10.csv
 outputs/report.html
 
+# Local Claude Code project instructions (not shared)
+/CLAUDE.md
+
 # OS / editor cruft
 .DS_Store
 Thumbs.db
