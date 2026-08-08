@@ -14,7 +14,7 @@ gold_rate_carry/
 │   ├── report_audit.py # formats audit results into audit_flags.md + CSVs (display only)
 │   ├── decisions.md    # human paper trail for every data change
 │   └── clean.py        # applies ONLY documented fixes + T+1 DFII10 alignment
-├── signal.py           # real_yield_momentum(df, lookback) -> weight series
+├── signals.py          # compute_signal(df, lookback) + apply_monthly_rebalance (named signals to avoid the stdlib `signal` clash)
 ├── costs.py            # cost drag model (bps + expense ratio)
 ├── backtest.py         # signal-agnostic engine -> equity curve + trade log
 ├── evaluate.py         # metrics, grid runner, regime splits, block bootstrap
