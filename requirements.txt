@@ -4,7 +4,8 @@ numpy
 
 # Data sources
 yfinance            # GLD prices
-pandas-datareader   # FRED (DFII10)
+fredapi             # FRED (DFII10) real yield
+pyarrow             # parquet engine for raw-pull caching
 
 # Evaluation / stats
 scipy               # block bootstrap, significance testing
