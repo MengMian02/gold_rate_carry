@@ -288,3 +288,103 @@ def run_regime_split(
         "regime_1": _one_regime(regime_1),
         "regime_2": _one_regime(regime_2),
     }
+
+
+# --------------------------------------------------------------------------
+# moving block bootstrap of the Sharpe ratio
+# --------------------------------------------------------------------------
+def _sharpe_from_array(arr: np.ndarray) -> float:
+    """Annualized Sharpe of a returns array, matching qs.stats.sharpe's default
+    convention (mean / std(ddof=1) * sqrt(252), rf=0). Verified equal to
+    qs.stats.sharpe on a clean series; used in the bootstrap loop for speed."""
+    std = arr.std(ddof=1)
+    if std == 0 or np.isnan(std):
+        return float("nan")
+    return float(arr.mean() / std * np.sqrt(_TRADING_DAYS_PER_YEAR))
+
+
+def run_block_bootstrap(
+    daily_returns: pd.Series,
+    block_size: int = 21,
+    n_boot: int = 1000,
+    seed: int = _RANDOM_SEED,
+) -> dict:
+    """Moving block bootstrap of the annualized Sharpe ratio.
+
+    Resamples ``daily_returns`` by drawing random contiguous blocks of length
+    ``block_size`` (with replacement, overlapping starts allowed) and
+    concatenating them until the resampled series matches the original length
+    (last block truncated to hit the exact length). For each of ``n_boot``
+    replicates the annualized Sharpe is computed (same QuantStats convention used
+    elsewhere).
+    """
+    r = daily_returns.dropna().to_numpy(dtype=float)
+    n = len(r)
+
+    # Sharpe of the real, unresampled input (same QuantStats convention).
+    actual_sharpe = float(qs.stats.sharpe(daily_returns.dropna()))
+
+    # block_size=21 ~ one month of trading days, matching the strategy's MONTHLY
+    # rebalance cadence so each contiguous block preserves within-holding-period
+    # autocorrelation. This is a JUDGMENT CALL, not a derived value -- worth a
+    # sensitivity check (e.g. re-running at block_size=10 and 42) rather than
+    # treating 21 as definitively correct.
+    eff_block = min(block_size, n) if n > 0 else block_size
+    max_start = max(0, n - eff_block)
+    n_blocks = int(np.ceil(n / eff_block)) if eff_block else 0
+    offsets = np.arange(eff_block)
+
+    rng = np.random.default_rng(seed)
+    boot = np.empty(n_boot, dtype=float)
+    for b in range(n_boot):
+        starts = rng.integers(0, max_start + 1, size=n_blocks)
+        idx = (starts[:, None] + offsets[None, :]).ravel()[:n]
+        boot[b] = _sharpe_from_array(r[idx])
+
+    return {
+        "actual_sharpe": actual_sharpe,
+        "bootstrap_mean": float(np.mean(boot)),
+        "bootstrap_std": float(np.std(boot, ddof=1)),
+        "ci_lower": float(np.percentile(boot, 2.5)),
+        "ci_upper": float(np.percentile(boot, 97.5)),
+        "pct_bootstrap_leq_zero": float(np.mean(boot <= 0)),
+        "block_size": block_size,
+        "n_boot": n_boot,
+        "seed": seed,
+    }
+
+
+# The four analysis windows, matching the earlier functions' conventions.
+_BOOTSTRAP_PERIODS = {
+    "IS": ("2005-01-01", "2016-12-31"),
+    "OOS": ("2017-01-01", "2025-12-31"),
+    "regime_1": ("2008-01-01", "2021-12-31"),
+    "regime_2": ("2022-01-01", "2024-12-31"),
+}
+
+
+def run_block_bootstrap_all_periods(
+    merged_df: pd.DataFrame,
+    winning_lookback: int,
+    block_size: int = 21,
+    n_boot: int = 1000,
+    seed: int = _RANDOM_SEED,
+) -> dict:
+    """Run run_block_bootstrap on the four analysis windows for one lookback.
+
+    The pipeline is run ONCE for ``winning_lookback``; its net daily returns are
+    then sliced to each window (IS, OOS, Regime 1, Regime 2) and bootstrapped,
+    rather than re-running the pipeline per period. Returns a dict keyed by
+    period name.
+    """
+    _, res = _run_pipeline(merged_df, winning_lookback, costs.build_cost_fn())
+    net_daily = res["daily_returns"]
+    return {
+        name: run_block_bootstrap(
+            net_daily.loc[start:end].fillna(0.0),
+            block_size=block_size,
+            n_boot=n_boot,
+            seed=seed,
+        )
+        for name, (start, end) in _BOOTSTRAP_PERIODS.items()
+    }
