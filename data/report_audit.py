@@ -1,7 +1,11 @@
 """Format audit results for human review -- display only, no logic.
 
 Thin companion to audit.py: it takes the dicts returned by ``audit_gld()`` and
-``audit_dfii10()`` and renders them into human-readable files under ``outputs/``.
+``audit_dfii10()`` *together with the source frames that were audited*, and
+renders them into human-readable files under ``outputs/``. For every flagged
+date it reports the full underlying row (OHLCV for GLD, the value for DFII10),
+so each flag can be checked and verified directly against the raw data.
+
 It makes NO judgment about whether a flag is a genuine market event or a data
 error -- that determination is human-authored in ``data/decisions.md``.
 
@@ -25,12 +29,20 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 _MAX_TABLE_ROWS = 20        # if a series has more flagged rows than this, truncate the table
 _TRUNCATED_ROWS = 10        # ...to this many most-extreme rows (full detail stays in the CSV)
 
-# Expected schema of the anomalies DataFrame (kept local to stay independent of audit.py).
+# Columns produced by the audit's anomalies DataFrame (kept local to stay
+# independent of audit.py). Everything merged in beyond these is source data.
 _ANOMALY_COLUMNS = ["date", "issue_type", "value", "detail"]
 
 _GLD_CSV = "audit_flags_gld.csv"
 _DFII10_CSV = "audit_flags_dfii10.csv"
 _REPORT_MD = "audit_flags.md"
+
+_COL_LABELS = {
+    "date": "Date",
+    "issue_type": "Issue Type",
+    "value": "Value",
+    "detail": "Detail",
+}
 
 
 # --------------------------------------------------------------------------
@@ -87,18 +99,47 @@ def _top_by_magnitude(anomalies: pd.DataFrame, k: int) -> pd.DataFrame:
     return anomalies.loc[order].head(k)
 
 
-def _md_table(anomalies: pd.DataFrame) -> list[str]:
-    lines = [
-        "| Date | Issue Type | Value | Detail | Classification |",
-        "| --- | --- | --- | --- | --- |",
-    ]
-    for _, r in anomalies.iterrows():
-        date = _fmt_date(r.get("date"))
-        issue = str(r.get("issue_type", ""))
-        value = _fmt_value(r.get("value"))
-        detail = str(r.get("detail", "") or "")
+def _enrich(anomalies: pd.DataFrame | None, source_df: pd.DataFrame | None) -> pd.DataFrame:
+    """Attach the full source row for each flagged date onto the anomalies.
+
+    Left-joins ``source_df`` (indexed by date) onto the anomalies by date, so
+    every flagged day carries all of its underlying data. Returns a copy; the
+    inputs are not modified.
+    """
+    if anomalies is None:
+        anomalies = pd.DataFrame(columns=_ANOMALY_COLUMNS)
+    if source_df is None or len(anomalies) == 0:
+        return anomalies.copy()
+
+    src = source_df.copy()
+    src.index = pd.to_datetime(src.index)
+    # Drop any source column that would collide with an anomaly column.
+    src = src[[c for c in src.columns if c not in _ANOMALY_COLUMNS]]
+    return anomalies.merge(src, left_on="date", right_index=True, how="left")
+
+
+def _col_label(col: str) -> str:
+    return _COL_LABELS.get(col, col)
+
+
+def _fmt_cell(col: str, value) -> str:
+    if col == "date":
+        return _fmt_date(value)
+    if col in ("issue_type", "detail"):
+        if value is None or (isinstance(value, float) and pd.isna(value)):
+            return ""
+        return str(value)
+    return _fmt_value(value)
+
+
+def _md_table(df: pd.DataFrame, columns: list[str]) -> list[str]:
+    header = "| " + " | ".join(_col_label(c) for c in columns) + " | Classification |"
+    sep = "| " + " | ".join("---" for _ in columns) + " | --- |"
+    lines = [header, sep]
+    for _, r in df.iterrows():
+        cells = [_fmt_cell(c, r.get(c)) for c in columns]
         # Classification column intentionally left blank for human review.
-        lines.append(f"| {date} | {issue} | {value} | {detail} | |")
+        lines.append("| " + " | ".join(cells) + " |  |")
     return lines
 
 
@@ -112,14 +153,15 @@ def _header() -> str:
         "> anomaly classifications, and the decisions that follow belong in\n"
         "> `data/decisions.md` — never here.\n\n"
         "This report only formats and displays the output of `audit_gld()` and\n"
-        "`audit_dfii10()`. It makes **no** judgment about whether a flag is a real\n"
-        "market event or a data error; that determination is human-authored in\n"
-        "`data/decisions.md`. The blank **Classification** column in each table marks\n"
-        "where that review should reference the date."
+        "`audit_dfii10()`, enriched with the full underlying row for each flagged date.\n"
+        "It makes **no** judgment about whether a flag is a real market event or a data\n"
+        "error; that determination is human-authored in `data/decisions.md`. The blank\n"
+        "**Classification** column in each table marks where that review should reference\n"
+        "the date."
     )
 
 
-def _series_section(name: str, result: dict, csv_name: str) -> str:
+def _series_section(name: str, result: dict, enriched: pd.DataFrame, csv_name: str) -> str:
     lines: list[str] = [f"## {name}", ""]
 
     checks = result.get("hard_errors_checked", []) or []
@@ -138,8 +180,7 @@ def _series_section(name: str, result: dict, csv_name: str) -> str:
         lines.append("- _(no summary)_")
     lines.append("")
 
-    anomalies = result.get("anomalies")
-    n = 0 if anomalies is None else len(anomalies)
+    n = len(enriched)
     lines.append(f"**Flagged rows: {n}** (full detail in `{csv_name}`)")
     lines.append("")
 
@@ -148,16 +189,19 @@ def _series_section(name: str, result: dict, csv_name: str) -> str:
         return "\n".join(lines)
 
     if n > _MAX_TABLE_ROWS:
-        shown = _top_by_magnitude(anomalies, _TRUNCATED_ROWS)
+        shown = _top_by_magnitude(enriched, _TRUNCATED_ROWS)
         lines.append(
             f"> Showing the {len(shown)} most extreme of {n} flagged rows "
             f"(ranked by magnitude of deviation). See `{csv_name}` for all {n}."
         )
         lines.append("")
     else:
-        shown = anomalies.sort_values("date") if "date" in anomalies else anomalies
+        shown = enriched.sort_values("date") if "date" in enriched else enriched
 
-    lines.extend(_md_table(shown))
+    # date, issue_type, then all underlying source columns, then flag specifics.
+    source_cols = [c for c in enriched.columns if c not in _ANOMALY_COLUMNS]
+    display_cols = ["date", "issue_type"] + source_cols + ["value", "detail"]
+    lines.extend(_md_table(shown, display_cols))
     return "\n".join(lines)
 
 
@@ -167,29 +211,30 @@ def _series_section(name: str, result: dict, csv_name: str) -> str:
 def write_audit_report(
     gld_result: dict,
     dfii10_result: dict,
+    gld_df: pd.DataFrame,
+    dfii10_df: pd.DataFrame,
     output_dir: str = "outputs/",
 ) -> None:
     """Render audit results to ``outputs/audit_flags.md`` (+ per-series CSVs).
 
-    All three files are overwritten on every run. Never touches
-    ``data/decisions.md``. See module docstring.
+    ``gld_df`` and ``dfii10_df`` are the same frames that were passed to
+    ``audit_gld()`` / ``audit_dfii10()``; each flagged date is joined back to its
+    full row so the report shows all underlying data for that day. All three
+    files are overwritten on every run. Never touches ``data/decisions.md``.
     """
     out = _resolve_dir(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    # Full detail always goes to CSV, regardless of the markdown table cap.
-    gld_anom = gld_result.get("anomalies")
-    dfii_anom = dfii10_result.get("anomalies")
-    if gld_anom is None:
-        gld_anom = pd.DataFrame(columns=_ANOMALY_COLUMNS)
-    if dfii_anom is None:
-        dfii_anom = pd.DataFrame(columns=_ANOMALY_COLUMNS)
-    gld_anom.to_csv(out / _GLD_CSV, index=False)
-    dfii_anom.to_csv(out / _DFII10_CSV, index=False)
+    gld_enriched = _enrich(gld_result.get("anomalies"), gld_df)
+    dfii_enriched = _enrich(dfii10_result.get("anomalies"), dfii10_df)
+
+    # Full detail (all flagged rows, all columns) always goes to CSV.
+    gld_enriched.to_csv(out / _GLD_CSV, index=False)
+    dfii_enriched.to_csv(out / _DFII10_CSV, index=False)
 
     parts = [
         _header(),
-        _series_section("GLD", gld_result, _GLD_CSV),
-        _series_section("DFII10", dfii10_result, _DFII10_CSV),
+        _series_section("GLD", gld_result, gld_enriched, _GLD_CSV),
+        _series_section("DFII10", dfii10_result, dfii_enriched, _DFII10_CSV),
     ]
     (out / _REPORT_MD).write_text("\n\n".join(parts) + "\n", encoding="utf-8")
