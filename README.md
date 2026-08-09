@@ -283,7 +283,7 @@ independent evidence this is exactly what happened to gold's real-yield relation
 
 ---
 
-## 9. Related research
+## 8. Related research
 
 **Barsky, R.B. and Summers, L.H. (1988).** "Gibson's Paradox and the Gold Standard."
 *Journal of Political Economy*, Vol. 96, No. 3, pp. 528–550.
