@@ -1,99 +1,234 @@
 # gold_rate_carry
 
----
-
-## 1. Overview
-
-**Strategy tested:** long GLD when the 20-trading-day change in the 10-Year Treasury Inflation-Protected real yield (FRED: `DFII10`) is negative; flat otherwise. Monthly rebalance.
-
-**Core question:** does gold's price respond to the real (inflation-adjusted) discount rate in a way that's tradeable, net of costs, and does that relationship survive out-of-sample and across different rate regimes?
-
-**Headline finding:** the mechanism shows genuine, statistically distinguishable edge in a near-zero/falling-rate regime (2008–2021), but breaks down — and underperforms a random-timing benchmark — in the 2022–2024 rate-hiking regime, consistent with a specific, named competing driver (central-bank gold buying) overwhelming the discount-rate channel in that period. Full detail in §7–8.
+A backtest of a real-yield-driven timing strategy on GLD (SPDR Gold Shares).
 
 ---
 
-## 2. Why this project, and why this asset/mechanism
+## Abstract
 
-Gold pays no yield. The opportunity cost of holding it — what you give up by not holding something that does pay — is proxied by the real interest rate: falling real yields reduce that opportunity cost and should support gold's price; rising real yields raise it.
+Gold pays no yield, so the opportunity cost of holding it is proxied by the real
+(inflation-adjusted) interest rate. This project tests a simple rule — long GLD when the
+20-trading-day change in the 10-Year TIPS real yield (FRED: `DFII10`) is negative, flat
+otherwise, monthly rebalance — and asks whether that relationship is tradeable net of
+costs, whether it holds out-of-sample, and whether it survives across different real-rate
+regimes.
 
-**A more precise framing than plain "opportunity cost": duration.** Treat gold as an effectively infinite-maturity, zero-coupon claim — the real-asset analogue of a perpetual bond. For an ordinary zero-coupon bond, price ≈ 1/(1+r)^T; as T grows, sensitivity to r grows without bound. Gold, having no maturity at all, should therefore be *unusually* sensitive to the discount rate — not just marginally affected by it. This is close to the framing in Barsky & Summers (1988), which modeled gold roughly as a consol-like claim on the real rate rather than treating it as an ordinary commodity.
-
-**Why the real yield specifically, not the nominal yield.** Gold's nominal price is pushed by at least two forces that partly offset each other: the real discount rate (the duration channel above), and inflation expectations (gold as a partial inflation hedge — rising expected inflation tends to push both nominal yields and gold's nominal price up, opposite signs on the two channels). Using `DFII10` (a TIPS-implied real yield) nets out the inflation-expectation component before it reaches the signal, isolating the discount-rate channel directly rather than requiring a multi-variable regression to disentangle it — the latter would edge toward the "large optimization exercise" the case brief explicitly discourages.
-
-**A named, third channel this strategy deliberately does not capture.** Central-bank reserve diversification and geopolitical safe-haven demand are a separate, real driver of gold demand — most plausibly the dominant explanation for 2022–2024, when real yields spiked (Fed hiking) but gold did not fall, plausibly linked to accelerated central-bank gold buying (China and others) following the 2022 freezing of Russian FX reserves, which made large USD reserve holdings look more politically exposed. This strategy tests one specific, real channel; it does not claim to be a complete model of gold pricing, and §8 shows this limitation appearing exactly where expected.
-
-### Candidates considered and rejected
-
-Four candidates were evaluated against the case's permitted universe (economic/seasonal, mean-reversion, momentum categories):
-
-| Candidate | Mechanism | Reason not selected |
-|---|---|---|
-| Turn-of-month SPY seasonality | Structural month-end/month-start flows (payroll, pension rebalancing) | Well-documented since the 1980s with clear post-decay evidence; likely verdict is generic ("known anomaly decayed") rather than mechanism-specific |
-| 2–5 day mean reversion, SPY | Liquidity-provision compensation after sharp declines | High turnover makes the honest verdict close to "selected a strategy already known to fail under costs" unless very deliberately framed |
-| 12-1 time-series momentum, small basket | Slow information diffusion / risk premium | Most standard, most crowded choice; low differentiation, generic post-2010 decay story |
-| **GLD × real yield (selected)** | Discount-rate/duration channel | Genuine economic mechanism, natural two-era regime split, honest and *specific* (not generic) known weakness |
+**Finding:** the strategy shows genuine, statistically distinguishable edge in a
+near-zero/falling-rate regime (2008–2021), but breaks down — and underperforms a
+randomly-timed benchmark with matched exposure — in the 2022–2024 rate-hiking regime. This
+is consistent with, and corroborated by, independent research on gold's real-yield
+relationship weakening after 2022 as central-bank reserve buying became the dominant
+marginal driver of gold demand (§8, §9).
 
 ---
 
-## 3. Pre-commitment block
+## 1. Mechanism
 
-Per the case's requirement to commit to design choices before touching data, the following was fixed in advance:
+Gold's opportunity cost of carry rises with the real interest rate: when real yields fall,
+holding non-yielding gold becomes relatively more attractive; when real yields rise, the
+opposite. This project isolates that channel specifically by using the *real* yield
+(`DFII10`, derived from TIPS) rather than the nominal 10-year yield, which would also embed
+inflation-expectation effects that move gold through a separate channel (gold as a partial
+inflation hedge) with the opposite sign — using the real yield nets that channel out before
+it reaches the signal, rather than requiring a multi-variable regression to separate the two.
 
-**Mechanism:** real-yield discount-rate/duration channel (§2).
+**Theoretical grounding.** Barsky and Summers (1988) explain the historical correlation
+between interest rates and the price level under the gold standard through an
+opportunity-cost mechanism: a shock that raises the real rate of return reduces gold's
+equilibrium relative price, operating through how gold is allocated between monetary and
+non-monetary uses. This project's discount-rate framing draws directly on that mechanism —
+see §9 for the full citation and further reading.
 
-**Falsifiable condition:** the mechanism is considered unsupported if (a) net-of-cost performance in the signal-on state is statistically indistinguishable from signal-off (tested via block bootstrap), (b) any apparent edge concentrates in one narrow sub-period rather than persisting across regimes, or (c) results only hold for one specific lookback in the parameter grid (a tuning artifact rather than a real relationship).
-
-**Parameter grid:** lookback window for the DFII10 change, N ∈ {10, 20, 40, 60} trading days — chosen because these track the natural cadence of the underlying macro data (roughly two weeks, one month, two months, one quarter), not arbitrary numbers. Sign of change only — no magnitude threshold — to keep N the single tunable parameter in the entire strategy.
-
-**In-sample / out-of-sample split:** IS = Jan 2005–Dec 2016 (parameter selection only), OOS = Jan 2017–present (rules frozen, no further tuning). GLD inception is Nov 2004; the ~2-month gap before the IS start is used only to satisfy each candidate's lookback burn-in with real data, never counted toward any reported IS metric.
-
-*Why 12 years IS vs. ~9 years OOS, not an even split:* selecting among four discrete lookback values doesn't require extensive data to resolve — 2005–2016 spans more than one full real-rate cycle (2008 collapse, 2013 taper tantrum, subsequent grind lower), which is enough to avoid picking a lookback that only fits one directional trend. Extending IS further would mostly shrink OOS, at direct cost to statistical power on the number that matters most for the verdict, and at the cost of pulling the 2022–2024 breakdown period — deliberately left in OOS rather than tuned around — out of the honest test.
-
-**Regime split (separate axis from IS/OOS):** Regime 1 = 2008–2021 (near-zero/falling real yields), Regime 2 = 2022–2024 (sharply rising real yields, the acknowledged breakdown period). Defined by the real-yield trend itself, matching the mechanism under test, rather than an arbitrary volatility-based cut. Regime and IS/OOS windows deliberately overlap in calendar time — they answer different questions (did you tune on the future? vs. does performance hold across macro conditions?).
-
-**Benchmark:** GLD buy-and-hold (primary), plus an exposure-matched random-timing benchmark (§6) — since the strategy is not invested 100% of the time, a raw comparison to buy-and-hold conflates timing skill with simply not being exposed some of the time.
-
-**Costs:** applied on every position change (one-way bps) plus GLD's ongoing expense ratio (continuous holding cost) — see §5.
+**A named limitation, not a hidden one.** This strategy tests one specific, real channel
+(the discount-rate/opportunity-cost effect). It does not model, and does not claim to
+capture, other drivers of gold demand — most importantly, central-bank reserve
+diversification and geopolitical hedging, which independent research identifies as the
+dominant force behind gold's resilience despite rising real yields from 2022 onward (§8).
+The regime split in §7.3 shows this limitation appearing exactly where that research would
+predict it.
 
 ---
 
-## 4. Data
+## 2. Design
+
+**Signal:** for lookback N, long GLD (weight = 1) if `DFII10` has fallen over the past N
+trading days, flat (weight = 0) otherwise. Sign only, no magnitude threshold — this keeps N
+the single tunable parameter in the entire strategy.
+
+**Parameter grid:** N ∈ {10, 20, 40, 60} trading days — roughly two weeks, one month, two
+months, one quarter, tracking the natural cadence of the macro data (CPI prints, FOMC
+meetings, Treasury auctions) that moves real yields, rather than arbitrary numbers.
+
+**Rebalance frequency vs. signal lookback — a deliberate separation, with an open cost.**
+The lookback window (N) and the rebalance frequency are independent decisions, not the same
+parameter. Tying rebalance frequency to N would conflate two effects inside the parameter
+grid — a Sharpe difference between candidates could reflect either "this lookback reads the
+real-yield trend more accurately" or "this rebalance cadence trades more efficiently," with
+no way to separate the two. Fixing rebalance at monthly, independent of N, keeps N isolated
+as the only thing under test.
+
+This has a real cost, worth stating plainly rather than assuming away: the signal is
+computed *daily*, but only the reading on each month's first trading day is ever acted on —
+roughly 19 out of every 20 daily signal readings are computed and then never used for a
+decision. This isn't a loss of underlying data (each daily reading already incorporates a
+full N-day window of real-yield history), but it is a loss of decision frequency — a
+signal flip mid-month that reverses before the next rebalance is invisible to the strategy,
+not because the information wasn't there, but because it was never checked on a day that
+mattered. Monthly rebalancing happens to roughly match N=20's own timescale, which is a
+plausible reason more frequent rebalancing wouldn't help much — but this is untested, not
+demonstrated, and is flagged in §10 as the natural first robustness check for future work
+(e.g., re-running at weekly rebalance to see whether the additional decision frequency
+improves results or mainly adds transaction cost).
+
+**In-sample / out-of-sample split:** IS = January 2005 – December 2016 (parameter
+selection only); OOS = January 2017 – December 2025 (rules frozen, no further tuning).
+Twelve years of IS spans more than one full real-rate cycle (2008 collapse, 2013 taper
+tantrum, subsequent grind lower) — enough to avoid selecting a lookback that only fits one
+directional trend, without shrinking OOS (and its statistical power) further than
+necessary. The 2022–2024 breakdown is deliberately left inside OOS rather than tuned
+around, so the out-of-sample test is not artificially friendly.
+
+**Regime split (a separate axis from IS/OOS, answering a different question):** Regime 1 =
+2008–2021 (near-zero/falling real yields), Regime 2 = 2022–2024 (sharply rising real
+yields — the period gold's relationship with real yields is documented to have broken
+down, §8). Defined by the real-yield trend itself, matching the mechanism under test.
+IS/OOS asks "was this parameter chosen honestly, without peeking at the future"; the
+regime split asks "does performance hold up across different macro conditions" — the two
+windows deliberately overlap in calendar time because they're different questions.
+
+**Benchmark:** GLD buy-and-hold (primary), plus an exposure-matched random-timing
+benchmark. Since the strategy isn't invested 100% of the time, a raw Sharpe comparison to
+buy-and-hold conflates real timing skill with the effect of simply not always being
+exposed — mixing flat, zero-variance periods into a return series can move a Sharpe ratio
+independent of any skill, and how much depends entirely on which days happen to be flat.
+The random benchmark instead generates many (500) random month-level position series with
+the same total exposure as the actual strategy, and reports where the actual Sharpe falls
+within that distribution — isolating timing skill specifically.
+
+**Costs:** 8 bps one-way per trade (applied only when the position changes) plus GLD's
+0.40% annual expense ratio (applied continuously while holding, independent of trading
+activity) — kept as two separable components since they respond differently to changes in
+trading frequency versus holding duration.
+
+---
+
+## 3. Data
 
 | Series | Source | Notes |
 |---|---|---|
-| GLD (OHLCV) | yfinance | Listed, exchange-traded — standard ticker coverage |
-| DFII10 (10Y real yield) | FRED (manual CSV download) | Not a tradeable instrument — a published Treasury/Fed statistic, not covered by yfinance; downloaded by hand and read from `data/raw/DFII10.csv` |
+| GLD (OHLCV) | yfinance | Exchange-traded, standard ticker coverage |
+| DFII10 (10Y real yield) | FRED (manual CSV download) | A published Treasury/Fed statistic, not a tradeable instrument — not covered by yfinance; downloaded by hand and read from `data/raw/DFII10.csv` |
 
-**Publication-date (T+1) alignment.** FRED's DFII10 is labeled by the date it describes, not the date it was published — a value dated day T is not actually knowable until T+1. Before merging, DFII10 is shifted forward by one row (relative to its own date-ordered index, not a blind calendar-day shift, so it remains correct around holidays/gaps) so that the value used in any trading decision on day T reflects only what was genuinely public knowledge by day T. This assumption (single-business-day publication lag) is stated, not independently verified against FRED's release calendar in detail — worth a closer check if extended further.
+**Publication-date (T+1) alignment.** FRED's DFII10 is labeled by the date it describes,
+not the date it was published — a value dated day T is not actually knowable until T+1.
+Before merging, DFII10 is shifted forward by one row (relative to its own date-ordered
+index, not a blind calendar-day shift, so it stays correct around holidays/gaps) so that
+any trading decision on day T uses only what was genuinely public by day T.
 
-**Trading-calendar mismatch.** GLD trades on the NYSE calendar; DFII10 is published on Treasury/bond-market business days — these calendars are not identical (some bond-market holidays are NYSE trading days and vice versa). The merge uses GLD's calendar as the base (the calendar actually traded on); on any GLD trading day where no T+1-aligned DFII10 value yet exists, the most recent published value is forward-filled, with a flag column marking every row where this occurred — a deliberate, narrow, documented exception, since it reflects what a real trader would actually know rather than papering over a genuine data gap. GLD itself is never forward-filled.
+**Trading-calendar mismatch and forward-fill.** GLD trades on the NYSE calendar; DFII10 is
+published on Treasury/bond-market business days — these calendars are not identical. The
+merge uses GLD's calendar as the base. On a GLD trading day where the bond market is
+closed (no new DFII10 print exists), the most recent published value is forward-filled,
+flagged in a dedicated column. This is not data invention: on a day the bond market is
+closed, nothing occurred to change the real yield — there is no unobserved "true" value
+different from the last print, only the absence of a new one. This differs from filling a
+gap in a series where the true value genuinely could have been anything and simply wasn't
+recorded (e.g., a missing GLD price) — that kind of gap is left as NA, never filled. GLD
+itself is never forward-filled in this project.
 
-**Data quality review.** Both series were independently audited for hard errors (duplicate/non-monotonic dates, implausible units, price/OHLC inconsistencies — designed to raise immediately) and anomalies (extreme moves via median-absolute-deviation threshold, repeated/stale values, zero-volume days) before merging. Flags were triaged by category rather than reviewed row-by-row: repeated-value flags in DFII10 were resolved as a batch, reflecting the series' native reporting precision and lower TIPS-market turnover rather than a stale feed; extreme-move flags were reviewed individually against known market events. Full disposition and reasoning: `data/decisions.md`.
+**Data quality review.** Both series were independently audited for hard errors
+(duplicate/non-monotonic dates, implausible units, OHLC inconsistencies) and anomalies
+(extreme moves via median-absolute-deviation threshold, repeated/stale values, zero-volume
+days) before merging. Flags were triaged by category rather than reviewed row-by-row:
+repeated-value flags in DFII10 were resolved as a batch, reflecting the series' native
+reporting precision and lower TIPS-market turnover rather than a stale feed; extreme-move
+flags were reviewed individually against known market events. Full disposition:
+`data/decisions.md`.
 
 ---
 
-## 5. Costs
+## 4. Methodology
 
-Two components, kept separable (they respond differently to changes in trading frequency vs. holding duration, and the case requires cost-sensitivity testing):
+The pipeline is split into single-responsibility, composable modules — raw data loading,
+read-only audit, alignment/merge, signal generation (general float weight output, not a
+hardcoded boolean), cost modeling, an asset- and signal-agnostic backtest engine, and
+evaluation. This keeps the strategy itself simple while the engine, cost model, and
+evaluation tools remain reusable for future strategies and assets (§10).
 
-- **Per-trade cost:** 8 bps one-way (midpoint of the case's suggested 5–10 bps range for liquid commodity ETFs), applied only on the specific dates the position changes.
-- **Expense ratio drag:** 0.40% annually (GLD's published expense ratio), applied continuously while holding, independent of trading activity.
+**Parameter selection (in-sample only).** Each candidate lookback runs the full pipeline
+on the full available data range (for correct signal burn-in), then results are filtered
+to the IS window only before any metric is computed — no OOS date ever influences IS
+selection. All four candidates are reported.
 
-Position timing follows `position(t-1) × return(t)` throughout (avoiding same-day lookahead), so the expense-ratio drag begins accruing the day *after* a position is opened, not the day it's decided — consistent with the same execution-timing convention used in the backtest engine.
+**Exposure-matched random benchmark.** Described in §2. Generates 500 random position
+series matching the strategy's actual exposure in a given window, runs each through the
+identical pipeline, and reports the actual strategy's percentile rank within that
+distribution.
+
+**Block bootstrap significance.** Daily returns within a monthly holding period are
+autocorrelated, violating the independence assumption behind standard significance tests.
+A moving block bootstrap (block length 21 trading days, matching the rebalance cadence — a
+stated judgment call) resamples contiguous chunks of the return series to preserve that
+dependency, and reports where zero falls relative to the resulting Sharpe distribution.
+
+**A key distinction, easy to conflate:** the block bootstrap tests whether the Sharpe
+ratio is reliably *above zero* — satisfiable purely through directional market exposure
+(beta) if the underlying asset trended up over the period, with no timing skill required.
+The random exposure-matched benchmark tests whether the *specific dates chosen*
+outperform other, randomly-chosen date sets with the same exposure — isolating timing
+skill specifically. These can and do disagree (§7.2).
 
 ---
 
-## 6. Methodology
+## 5. Costs and real-vs-nominal returns
 
-**Signal-agnostic, reusable design.** The pipeline is deliberately split into single-responsibility, composable modules — `src/loaders.py` (raw fetch), `src/audit.py` (read-only diagnostics), `src/clean.py` (alignment/merge only), `src/signals.py` (position weights, general float output not hardcoded boolean), `src/costs.py`, `src/backtest.py` (asset- and signal-agnostic engine), `src/evaluate.py`. This keeps the current strategy's logic simple — matching the case's explicit "no large optimization exercise" instruction — while the engine, cost model, and evaluation tools stay reusable for future strategies/assets beyond this submission.
+**Costs.** Per-trade cost (8 bps) applies only on the specific dates the position changes;
+the expense-ratio drag (0.40%/year) applies continuously while holding, independent of
+trading. Position timing follows `position(t-1) × return(t)` throughout, so the
+expense-ratio drag begins accruing the day after a position opens, not the day it's
+decided.
 
-**Parameter selection (in-sample only).** For each candidate lookback, the full pipeline runs on the full available data range (for correct signal burn-in), then results are filtered to the IS window only before any metric is computed — no date outside IS ever influences IS metric selection. All four candidates are reported, not just the winner.
+**Real yield vs. nominal price convention.** `DFII10` is a real (inflation-adjusted)
+yield, while GLD's price and return series used throughout are nominal. At the ~20-day
+horizon the signal operates on, this is not a meaningful source of bias: expected
+inflation over such a short window is small relative to gold's own short-horizon
+volatility, so it does not distort the relationship being tested. It does matter for the
+headline cumulative and annualized return figures in §7, since realized inflation
+compounds meaningfully over the multi-year windows and is embedded in every nominal GLD
+return — strategy and benchmark alike. Because both the strategy and every benchmark it's
+compared against hold the same nominal asset, this inflation drift enters both sides
+symmetrically: it inflates the level of headline returns reported, but does not bias the
+relative comparisons (Sharpe differentials, random-benchmark percentiles) the conclusions
+rest on.
 
-**Exposure-matched random benchmark.** Since the strategy is not invested 100% of the time, comparing directly to GLD buy-and-hold's Sharpe is not a fair test: mixing in flat (zero-return, zero-variance) periods can mechanically move a Sharpe ratio independent of any real timing skill, and how much it moves depends entirely on which days happen to be flat — not something inferable from a single number. The benchmark instead generates many (500) random month-level position series with the same total exposure (same count of "on" months) as the actual strategy in a given window, runs each through the identical pipeline, and reports where the actual strategy's Sharpe falls within that distribution — directly testing timing skill, isolated from the effect of simply not always being exposed.
+---
 
-**Block bootstrap significance.** Daily returns within a monthly holding period are autocorrelated, violating the independence assumption behind standard significance tests. A moving block bootstrap (block length 21 trading days, matching the monthly rebalance cadence — a stated judgment call, not a derived value) resamples contiguous chunks of the return series to preserve that within-period dependency, builds a distribution of plausible Sharpe outcomes under resampling, and reports where zero falls relative to that distribution.
+## 6. Repository structure
 
-**A key distinction between the two significance checks, easy to conflate:** the block bootstrap tests whether the Sharpe ratio is reliably *above zero* — which a strategy can satisfy purely from directional market exposure (beta) during a period the underlying asset trended up, with no timing skill at all. The random exposure-matched benchmark tests whether the *specific dates chosen* outperform other equally-sized, randomly-chosen date sets — isolating timing skill specifically. The two can and do disagree (§8).
+```
+gold_rate_carry/
+├── src/
+│   ├── loaders.py          # raw pulls: fetch_gld() (yfinance), load_dfii10() (manual FRED CSV)
+│   ├── audit.py            # read-only diagnostics, no fixes
+│   ├── report_audit.py     # formats audit output for human review (-> result/)
+│   ├── clean.py            # T+1 alignment + calendar merge only
+│   ├── signals.py          # compute_signal(), apply_monthly_rebalance()
+│   ├── costs.py            # build_cost_fn() — per-trade + expense ratio
+│   ├── backtest.py         # signal-agnostic engine
+│   ├── evaluate.py         # metrics (via QuantStats), grid runner, OOS,
+│   │                       #   regime split, block bootstrap
+│   └── report.py           # self-contained HTML report (pending)
+├── data/
+│   ├── raw/DFII10.csv      # manual FRED download (tracked)
+│   ├── raw/gld_raw.csv     # yfinance cache (gitignored)
+│   ├── merged.csv          # clean.py output (gitignored)
+│   └── decisions.md        # human-authored anomaly review and reasoning
+├── result/                 # generated audit flags + HTML report (gitignored)
+├── source_note.md          # source/version/caveat log (pending)
+├── memo.md                 # verdict and persistence discussion (pending, gitignored)
+├── CLAUDE.md               # coding-agent working conventions (gitignored)
+└── requirements.txt
+```
 
 ---
 
@@ -108,11 +243,14 @@ Position timing follows `position(t-1) × return(t)` throughout (avoiding same-d
 | 40 | 0.219 | 2.1% | 13.5% | −44.7% | 0.515 | 5.0 | 60 | 54.6 | 0.098 |
 | 60 | 0.522 | 6.5% | 13.9% | −21.8% | 0.524 | 3.3 | 40 | 88.3 | 0.132 |
 
-Selected by highest IS Sharpe: **N = 20** (≈ one calendar month — also the strategy's rebalance frequency, and roughly the natural refresh interval of the CPI/FOMC-driven information flow that moves real yields). N = 20's win over N = 60 is real but not dominant (0.601 vs. 0.522) — a narrow win among economically plausible neighbors is more consistent with a genuine, moderately robust signal than a single spiking outlier would have been.
+Selected by highest IS Sharpe: **N = 20**. The win over N = 60 is real but not dominant
+(0.601 vs. 0.522) — a narrow win among economically plausible neighbors is more consistent
+with genuine, moderately robust signal than a single spiking outlier would be.
 
-IS random-benchmark check: N=20 beat 473 of 500 exposure-matched random draws (**94.6th percentile**) — meaningfully better than dilution alone would produce.
+IS random-benchmark check: N=20 beat 473 of 500 exposure-matched random draws (**94.6th
+percentile**).
 
-### 7.2 Out-of-sample confirmation (2017–2025), N = 20 frozen
+### 7.2 Out-of-sample confirmation (January 2017 – December 2025), N = 20 frozen
 
 | Metric | Value |
 |---|---|
@@ -123,9 +261,11 @@ IS random-benchmark check: N=20 beat 473 of 500 exposure-matched random draws (*
 | Hit rate | 0.543 |
 | Trades | 49 |
 | Avg hold (d) | 50.4 |
-| Random-benchmark percentile | **36.2nd** (beat 181/500 random draws; random mean 0.711) |
+| Random-benchmark percentile | **36.2nd** (beat 181/500; random mean 0.711) |
 
-An OOS Sharpe of 0.636 looks respectable in isolation, but falls *below* the exposure-matched random benchmark's own mean — the pooled OOS result does not show genuine timing skill once dilution is controlled for.
+A Sharpe of 0.636 looks respectable in isolation, but falls *below* the exposure-matched
+random benchmark's own mean — the pooled OOS result does not show genuine timing skill
+once exposure-driven dilution is controlled for.
 
 ### 7.3 Regime split, N = 20 frozen
 
@@ -140,8 +280,6 @@ An OOS Sharpe of 0.636 looks respectable in isolation, but falls *below* the exp
 | Random-benchmark percentile | **98.2nd** (beat 491/500) | **8.8th** (beat 44/500) |
 | Random draws' mean Sharpe | 0.231 | 0.553 |
 
-The pooled OOS result (§7.2) is a blend of a genuinely strong late stretch of Regime 1 and the Regime 2 collapse — the regime split is what actually explains the weak aggregate OOS figure.
-
 ### 7.4 Block bootstrap significance (block = 21 days, 1,000 replicates, seed 42)
 
 | Period | Actual Sharpe | Bootstrap mean | 95% CI | P(Sharpe ≤ 0) |
@@ -155,20 +293,73 @@ The pooled OOS result (§7.2) is a blend of a genuinely strong late stretch of R
 
 ## 8. Discussion
 
-**IS, OOS, and Regime 1 are all bootstrap-distinguishable from zero — but OOS's positive bootstrap result should not be read as validation.** OOS's Sharpe is reliably positive (95% CI excludes zero) largely because GLD trended upward over 2017–2025 and the strategy was long roughly half the time — a beta effect that a randomly-timed strategy with the same exposure would capture just as well, and indeed did slightly better (§7.2's 36.2nd percentile). The bootstrap test and the random-timing benchmark answer genuinely different questions and can disagree; only Regime 1 shows both a reliably-positive Sharpe *and* genuine outperformance of random timing — the strongest evidence of real, mechanism-driven skill in this project.
+IS, OOS, and Regime 1 are all bootstrap-distinguishable from zero — but OOS's positive
+result should not be read as validation of timing skill. OOS's Sharpe is reliably positive
+largely because GLD trended upward over 2017–2025 and the strategy was long roughly half
+the time — a beta effect a randomly-timed strategy with the same exposure captures just as
+well, and in fact did slightly better (§7.2). The bootstrap test and the random-timing
+benchmark answer different questions and can disagree; only Regime 1 shows both a reliably
+positive Sharpe *and* genuine outperformance of random timing — the strongest evidence of
+real, mechanism-driven edge in this project.
 
-**Regime 2's failure is not just "worse" — it is a different kind of result, and one predicted in advance.** Its Sharpe is negative but not statistically distinguishable from zero (95% CI spans from −0.89 to 0.88, driven by the regime's short window — 36 months, 20 trades). It also underperformed random timing (8.8th percentile). Both facts point toward the same interpretation named at the outset (§2): the discount-rate/duration channel this strategy is built on was real and exploitable when it was the dominant driver of gold pricing (Regime 1), and was overwhelmed by a separate, non-modeled channel — plausibly central-bank reserve diversification — once that channel began to dominate (Regime 2). The strategy correctly stopped adding value exactly where its own stated mechanism predicted it would.
-
-**Real yield vs. nominal price convention.** DFII10 is a real (inflation-adjusted) yield, while GLD's price and return series used throughout are nominal. At the ~20-trading-day horizon the signal operates on, this is not a meaningful source of bias: expected inflation over such a short window is small relative to gold's own short-horizon volatility, so it does not distort the relationship the signal tests. It does matter for the headline cumulative and annualized return figures reported in §7, since realized inflation compounds meaningfully over the multi-year IS/OOS/regime windows and is embedded in every nominal GLD return, strategy and benchmark alike. Because both the strategy's returns and every benchmark it's compared against (buy-and-hold, exposure-matched random draws) hold the same nominal asset, this inflation drift enters both sides symmetrically — it inflates the level of headline returns reported, but does not bias the relative comparisons (Sharpe differentials, random-benchmark percentiles) that the verdict actually rests on.
+Regime 2's failure is not merely "worse" — it is a different kind of result, and one the
+mechanism (§1) predicts. Its Sharpe is negative but not statistically distinguishable from
+zero given the regime's short window (36 months, 20 trades), and it underperformed random
+timing (8.8th percentile). Both facts are consistent with the discount-rate channel being
+overwhelmed by a separate, non-modeled driver once that driver became dominant — see §9 for
+independent evidence this is exactly what happened to gold's real-yield relationship after
+2022.
 
 ---
 
-## 9. Status and reproducibility
+## 9. Related research
 
-**Completed:** data collection, audit, cleaning/merge, signal, costs, backtest engine, IS parameter selection, OOS confirmation, regime split, block bootstrap significance.
+**Barsky, R.B. and Summers, L.H. (1988).** "Gibson's Paradox and the Gold Standard."
+*Journal of Political Economy*, Vol. 96, No. 3, pp. 528–550.
+https://www.journals.uchicago.edu/doi/abs/10.1086/261550 (NBER working paper version:
+https://www.nber.org/papers/w1680). Explains the historical correlation between interest
+rates and the price level under the gold standard through an opportunity-cost mechanism —
+a rise in the real rate of return reduces gold's equilibrium relative price, operating
+through the allocation of gold between monetary and non-monetary uses. This project's
+discount-rate framing draws on this mechanism.
 
-**Pending:** final verdict and 300–500 word memo (`memo.md`), source note (`source_note.md`), self-contained HTML report (`result/report.html`), cost-sensitivity testing across the case's suggested bps range.
+**European Central Bank (2025).** "Gold demand: the role of the official sector and
+geopolitics." *In-Focus*, ECB Economic Bulletin.
+https://www.ecb.europa.eu/press/other-publications/ire/focus/html/ecb.irebox202506_01~f93400a4aa.en.html.
+Documents that gold prices were negatively correlated with real yields from 2008 to early
+2022, and that this correlation broke down following Russia's 2022 invasion of Ukraine;
+cites research linking the imposition of financial sanctions to central banks increasing
+the gold share of their reserves.
 
-**Environment:** Python virtual environment at `.venv`; no API keys required — DFII10 is a manually downloaded FRED CSV (`data/raw/DFII10.csv`). See `CLAUDE.md` for coding-agent working conventions used on this project (data-integrity rules, staged-process discipline).
+**RBC Wealth Management (2025).** "Gold's regime change?"
+https://www.rbcwealthmanagement.com/en-asia/insights/golds-regime-change. Reports that the
+rolling correlation between gold prices and 10-year TIPS yields ran around 84% from
+1997–2004, but fell to approximately 3% in 2022–2023 — a direct empirical measure of the
+regime break this project's Regime 1 / Regime 2 split is built around.
 
-**Planned extension (post-submission):** this repo's signal/backtest/evaluate interfaces were deliberately kept generic (asset-agnostic engine, pluggable signal functions returning float weights) so they can be reused for a broader project beyond this case — additional signals, a continuous-weighting version of this strategy, and cross-asset generalization tests.
+**World Gold Council.** *Gold Demand Trends*, Central Banks section.
+https://www.gold.org/goldhub/research/central-banks. Reports that central banks purchased
+over 1,000 tonnes of gold annually in 2022, 2023, and 2024 — around a quarter of total gold
+demand in 2022–2023 — well above the 2010–2021 average of roughly 473 tonnes/year,
+providing direct evidence for the competing demand channel named in §1 and §8.
+
+---
+
+## 10. Status and next steps
+
+**Completed:** data collection, audit, cleaning/merge, signal, costs, backtest engine, IS
+parameter selection, OOS confirmation, regime split, block bootstrap significance.
+
+**Pending:** final verdict and memo (`memo.md`), source note (`source_note.md`), a
+self-contained HTML report, cost-sensitivity testing across a range of bps assumptions.
+
+**Open questions for extension, not yet tested:**
+- Whether rebalancing more frequently than monthly (e.g., weekly) captures meaningful
+  additional signal value, or mainly adds transaction cost (§2).
+- A continuous-weighting version of the signal, and generalization to other assets — the
+  engine and evaluation modules were built asset- and signal-agnostic specifically to
+  support this without rewriting the core pipeline.
+
+**Environment:** Python virtual environment at `.venv`; no API keys required — DFII10 is a
+manually downloaded FRED CSV (`data/raw/DFII10.csv`). See `CLAUDE.md` for coding-agent
+working conventions used on this project.
