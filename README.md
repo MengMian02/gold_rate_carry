@@ -203,38 +203,9 @@ rest on.
 
 ---
 
-## 6. Repository structure
+## 6. Results
 
-```
-gold_rate_carry/
-├── src/
-│   ├── loaders.py          # raw pulls: fetch_gld() (yfinance), load_dfii10() (manual FRED CSV)
-│   ├── audit.py            # read-only diagnostics, no fixes
-│   ├── report_audit.py     # formats audit output for human review (-> result/)
-│   ├── clean.py            # T+1 alignment + calendar merge only
-│   ├── signals.py          # compute_signal(), apply_monthly_rebalance()
-│   ├── costs.py            # build_cost_fn() — per-trade + expense ratio
-│   ├── backtest.py         # signal-agnostic engine
-│   ├── evaluate.py         # metrics (via QuantStats), grid runner, OOS,
-│   │                       #   regime split, block bootstrap
-│   └── report.py           # self-contained HTML report (pending)
-├── data/
-│   ├── raw/DFII10.csv      # manual FRED download (tracked)
-│   ├── raw/gld_raw.csv     # yfinance cache (gitignored)
-│   ├── merged.csv          # clean.py output (gitignored)
-│   └── decisions.md        # human-authored anomaly review and reasoning
-├── result/                 # generated audit flags + HTML report (gitignored)
-├── source_note.md          # source/version/caveat log (pending)
-├── memo.md                 # verdict and persistence discussion (pending, gitignored)
-├── CLAUDE.md               # coding-agent working conventions (gitignored)
-└── requirements.txt
-```
-
----
-
-## 7. Results
-
-### 7.1 In-sample parameter grid (2005–2016)
+### 6.1 In-sample parameter grid (2005–2016)
 
 | Lookback | Sharpe | Ann. return | Ann. vol | Max DD | Hit rate | Turnover | Trades | Avg hold (d) | Cost drag |
 |---|---|---|---|---|---|---|---|---|---|
@@ -250,7 +221,7 @@ with genuine, moderately robust signal than a single spiking outlier would be.
 IS random-benchmark check: N=20 beat 473 of 500 exposure-matched random draws (**94.6th
 percentile**).
 
-### 7.2 Out-of-sample confirmation (January 2017 – December 2025), N = 20 frozen
+### 6.2 Out-of-sample confirmation (January 2017 – December 2025), N = 20 frozen
 
 | Metric | Value |
 |---|---|
@@ -267,7 +238,7 @@ A Sharpe of 0.636 looks respectable in isolation, but falls *below* the exposure
 random benchmark's own mean — the pooled OOS result does not show genuine timing skill
 once exposure-driven dilution is controlled for.
 
-### 7.3 Regime split, N = 20 frozen
+### 6.3 Regime split, N = 20 frozen
 
 | Metric | Regime 1 (2008–2021) | Regime 2 (2022–2024) |
 |---|---|---|
@@ -280,7 +251,7 @@ once exposure-driven dilution is controlled for.
 | Random-benchmark percentile | **98.2nd** (beat 491/500) | **8.8th** (beat 44/500) |
 | Random draws' mean Sharpe | 0.231 | 0.553 |
 
-### 7.4 Block bootstrap significance (block = 21 days, 1,000 replicates, seed 42)
+### 6.4 Block bootstrap significance (block = 21 days, 1,000 replicates, seed 42)
 
 | Period | Actual Sharpe | Bootstrap mean | 95% CI | P(Sharpe ≤ 0) |
 |---|---|---|---|---|
@@ -291,7 +262,7 @@ once exposure-driven dilution is controlled for.
 
 ---
 
-## 8. Discussion
+## 7. Discussion
 
 IS, OOS, and Regime 1 are all bootstrap-distinguishable from zero — but OOS's positive
 result should not be read as validation of timing skill. OOS's Sharpe is reliably positive
@@ -345,7 +316,7 @@ providing direct evidence for the competing demand channel named in §1 and §8.
 
 ---
 
-## 10. Status and next steps
+## 9. Status and next steps
 
 **Completed:** data collection, audit, cleaning/merge, signal, costs, backtest engine, IS
 parameter selection, OOS confirmation, regime split, block bootstrap significance.
