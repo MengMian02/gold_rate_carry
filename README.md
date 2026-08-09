@@ -1,7 +1,5 @@
 # gold_rate_carry
 
-Backtest of a real-yield-driven timing strategy on GLD, built for a student society Junior Analyst take-home case. This README documents the experimental design, economic reasoning, methodology, and results — the required project memo (verdict, mechanism narrative, persistence discussion) is a separate deliverable (`memo.md`).
-
 ---
 
 ## 1. Overview
