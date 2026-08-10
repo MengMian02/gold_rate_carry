@@ -1,34 +1,15 @@
 # Memo
 
-_Target: 300–500 words. Written before results are final; update the "persistence"
-section once the backtest and robustness checks are in._
+This strategy tests the simple economic intuition that gold and interest-bearing assets are substitutes in portfolio construction. Gold can be modelled as a bond that generates no coupon and no maturity date. Following the formula of price = 1/(1+r)^T, price sensitivity to a change in r grows with T.
 
-## Why it may work
+The real yield is the relevant rate since it isolates the opportunity cost channel specifically (Barsky & Summers, 1988). The nominal yield bundles the real yield and the inflation expectations, which affect the gold price in opposite directions. Using DFII10 removes the offsetting channel. The strategy tests over a chosen lookback window, whether the fall in real yield is followed by gold returns that beat a randomly timed benchmark with matched market exposure.
 
-_(Placeholder — to be written.)_ The economic thesis links gold's price to the
-real cost of holding it. Gold pays no coupon, so the opportunity cost of owning
-it is the real yield available on safe assets (proxied by DFII10, the 10-year
-TIPS yield). When real yields fall, that opportunity cost drops and gold tends
-to become more attractive; when they rise, the reverse. A momentum reading on
-real yields is therefore a plausible conditioning variable for a long/flat GLD
-position.
+However, the assumption of the negative correlation between gold price and real interest rate may break down, as evidenced by a report by the European Central Bank that documented this occurrence in 2022 following the Russia’s invasion of Ukraine. Both real yield and gold prices increased during the same period of time due to geopolitical concerns as central banks in economies like China began adding more gold to their reserves for fear of sanctions (World Gold Council).
 
-## What could break it
+The results of the project support the earlier argument, as implementing the strategy between 2008 and 2021 showed positive and significant returns that beat 98.2% of randomly timed and exposure matched alternatives. However, the result between 2022 and 2024 showed otherwise, beating 8.8%, with Sharpe ratio statistically indistinguishable from 0. The mechanism fails to add value once central bank buying became the dominant driver for gold demand.
 
-_(Placeholder — to be written.)_ Candidate failure modes to address:
+A main limitation of this test is that the 2022 regime separation boundary was chosen with this breakdown already publicly documented, rather than discovered independently from data. This result therefore should be interpreted as a confirmation of a known structural break. In the actual implementation, it is important to follow updated economic research on trends in the industry.
 
-- **Regime dependence** — the real-rate/gold relationship may only hold in some
-  monetary regimes and invert or vanish in others.
-- **Overfitting the lookback** — a single tuned lookback may not survive the
-  parameter grid or block bootstrap in `evaluate.py`.
-- **Costs** — turnover from a momentum signal can erode a thin edge once
-  one-way transaction costs (bps) are applied. (GLD's expense ratio is not
-  deducted separately: `gld_adj_close`, the traded price used throughout,
-  already reflects it — deducting again would double-count.)
-- **Data artifacts** — publication-lag / lookahead bias if DFII10 alignment is
-  wrong; corporate actions or source revisions in GLD.
+Persistence depends on whether central bank buying reflects a temporary geopolitical response or a structural shift in the reserve management. Continuous high demand in the recent two years shows that it is not something that fades easily. Whether it will become a new norm is worth analysing.
 
-## Persistence
-
-_(Placeholder — to be written after results.)_ Whether any edge is likely to
-persist out-of-sample, and why or why not.
+Verdict: Monitor. The mechanism is real and statistically supported in the regime where it was tested, but it is currently dominated by a force outside of the model’s scope. The strategy should not be pursued outright in the current economic condition.
