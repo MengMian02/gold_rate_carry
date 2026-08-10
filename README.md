@@ -331,6 +331,6 @@ self-contained HTML report, cost-sensitivity testing across a range of bps assum
   engine and evaluation modules were built asset- and signal-agnostic specifically to
   support this without rewriting the core pipeline.
 
-**Environment:** Python virtual environment at `.venv`; no API keys required — DFII10 is a
-manually downloaded FRED CSV (`data/raw/DFII10.csv`). See `CLAUDE.md` for coding-agent
-working conventions used on this project.
+**Environment:** Python virtual environment at `.venv`; no credentials required — DFII10 is
+obtained as a manually downloaded FRED CSV (`data/raw/DFII10.csv`) and GLD via yfinance. See
+`CLAUDE.md` for coding-agent working conventions used on this project.
