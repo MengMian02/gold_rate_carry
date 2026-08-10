@@ -120,18 +120,30 @@ gold's), so charging it again would double-count.
 | GLD (OHLCV) | yfinance | Exchange-traded, standard ticker coverage |
 | DFII10 (10Y real yield) | FRED (manual CSV download) | A published Treasury/Fed statistic, not a tradeable instrument — not covered by yfinance; downloaded by hand and read from `data/raw/DFII10.csv` |
 
-**Raw data is not committed.** The raw series are intentionally excluded from this
-repository — both must be obtained locally before the notebook can run. GLD is fetched
-automatically via yfinance on first run and cached to `data/raw/gld_raw.csv`. DFII10 must be
-downloaded manually from FRED (<https://fred.stlouisfed.org/series/DFII10>) and saved to
-`data/raw/DFII10.csv`; `loaders.load_dfii10()` raises a clear error with these instructions
-if the file is missing.
+**Adjusted vs. unadjusted close.** `gld_adj_close` is used throughout. GLD pays no dividends
+and has never split, so adjusted and unadjusted close are effectively identical in practice;
+adjusted close is used for consistency with standard data-vendor convention and to correctly
+handle any future corporate action, even though none has occurred to date.
+
+**Raw data is committed for offline reproducibility.** Both raw series are checked into the
+repository (`data/raw/gld_raw.csv` and `data/raw/DFII10.csv`), so the core results reproduce
+without any network access. To refresh them, GLD re-fetches automatically via yfinance
+(`loaders.fetch_gld()`) and DFII10 is re-downloaded manually from FRED
+(<https://fred.stlouisfed.org/series/DFII10>) and saved to `data/raw/DFII10.csv`;
+`loaders.load_dfii10()` raises a clear error with these instructions if that file is missing.
 
 **Publication-date (T+1) alignment.** FRED's DFII10 is labeled by the date it describes,
 not the date it was published — a value dated day T is not actually knowable until T+1.
 Before merging, DFII10 is shifted forward by one row (relative to its own date-ordered
 index, not a blind calendar-day shift, so it stays correct around holidays/gaps) so that
 any trading decision on day T uses only what was genuinely public by day T.
+
+**Revision risk.** DFII10, like most FRED series, can in principle be revised after its
+initial release. Here this is immaterial: TIPS-derived real yields are computed from live
+market pricing, not the survey/estimate methodology that drives the large revisions seen in
+series such as GDP or employment, so they are not subject to meaningful revision. This
+project treats the currently-published values as final and does not attempt to reconstruct
+what an earlier, unrevised vintage would have shown.
 
 **Trading-calendar mismatch and forward-fill.** GLD trades on the NYSE calendar; DFII10 is
 published on Treasury/bond-market business days — these calendars are not identical. The
@@ -216,12 +228,12 @@ rest on.
 
 ### 6.1 In-sample parameter grid (2005–2016)
 
-| Lookback | Sharpe | Ann. return | Ann. vol | Max DD | Hit rate | Turnover | Trades | Avg hold (d) | Cost drag |
-|---|---|---|---|---|---|---|---|---|---|
-| 10 | 0.481 | 5.9% | 13.9% | −25.6% | 0.516 | 6.0 | 72 | 49.2 | 0.118 |
-| **20 (selected)** | **0.617** | **7.6%** | 13.3% | −16.9% | 0.522 | 6.2 | 74 | 43.6 | 0.147 |
-| 40 | 0.235 | 2.3% | 13.5% | −44.1% | 0.517 | 5.0 | 60 | 54.6 | 0.065 |
-| 60 | 0.539 | 6.8% | 13.9% | −21.8% | 0.526 | 3.3 | 40 | 88.3 | 0.071 |
+| Lookback | Sharpe | Calmar | Ann. return | Ann. vol | Max DD | Hit rate | Avg exp | Turnover | Trades | Avg hold (d) | Cost drag |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 10 | 0.481 | 0.231 | 5.9% | 13.9% | −25.6% | 0.516 | 58.6% | 6.0 | 72 | 49.2 | 0.118 |
+| **20 (selected)** | **0.617** | **0.450** | **7.6%** | 13.3% | −16.9% | 0.522 | 53.4% | 6.2 | 74 | 43.6 | 0.147 |
+| 40 | 0.235 | 0.052 | 2.3% | 13.5% | −44.1% | 0.517 | 54.2% | 5.0 | 60 | 54.6 | 0.065 |
+| 60 | 0.539 | 0.310 | 6.8% | 13.9% | −21.8% | 0.526 | 58.4% | 3.3 | 40 | 88.3 | 0.071 |
 
 Selected by highest IS Sharpe: **N = 20**. The win over N = 60 is real but not dominant
 (0.617 vs. 0.539) — a narrow win among economically plausible neighbors is more consistent
@@ -235,10 +247,12 @@ percentile**).
 | Metric | Value |
 |---|---|
 | Sharpe | 0.656 |
+| Calmar | 0.363 |
 | Ann. return | 6.8% |
 | Ann. vol | 11.0% |
 | Max drawdown | −18.8% |
 | Hit rate | 0.545 |
+| Average exposure | 55.7% |
 | Trades | 49 |
 | Avg hold (d) | 50.4 |
 | Random-benchmark percentile | **36.2nd** (beat 181/500; random mean 0.731) |
@@ -252,10 +266,12 @@ once exposure-driven dilution is controlled for.
 | Metric | Regime 1 (2008–2021) | Regime 2 (2022–2024) |
 |---|---|---|
 | Sharpe | 0.607 | −0.026 |
+| Calmar | 0.418 | −0.037 |
 | Ann. return | 7.2% | −0.7% |
 | Ann. vol | 12.8% | 9.5% |
 | Max drawdown | −17.2% | −18.8% |
 | Hit rate | 0.531 | 0.514 |
+| Average exposure | 58.2% | 41.8% |
 | Trades | 80 | 20 |
 | Random-benchmark percentile | **98.2nd** (beat 491/500) | **8.8th** (beat 44/500) |
 | Random draws' mean Sharpe | 0.248 | 0.571 |
@@ -339,8 +355,8 @@ and the self-contained HTML report (`result/report.html`).
   engine and evaluation modules were built asset- and signal-agnostic specifically to
   support this without rewriting the core pipeline.
 
-**Environment:** Python virtual environment at `.venv`; no credentials required. Raw data
-files are not committed to the repo — both must be obtained locally before the notebook can
-run: GLD is auto-fetched via yfinance on first run, and DFII10 must be manually downloaded
-from FRED and saved to `data/raw/DFII10.csv` (see §3 and `loaders.load_dfii10()`'s error
-message). See `CLAUDE.md` for coding-agent working conventions used on this project.
+**Environment:** Python virtual environment at `.venv`; no credentials required. Both raw
+data files are committed to the repo (`data/raw/gld_raw.csv`, `data/raw/DFII10.csv`), so the
+core results reproduce with no network access. To refresh them: GLD via yfinance
+(`loaders.fetch_gld()`); DFII10 via a manual FRED download (see §3). See `CLAUDE.md` for
+coding-agent working conventions used on this project.

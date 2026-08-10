@@ -56,10 +56,10 @@ def _avg_holding_period(pos_is: pd.Series) -> float:
 def _is_metrics(positions: pd.Series, res: dict, is_start: str, is_end: str) -> dict:
     """Compute IS-window metrics from an already-run backtest.
 
-    Return-based metrics (Sharpe, ann return, ann vol, max drawdown, hit rate)
-    come from QuantStats on the NET daily returns filtered to the IS window.
-    Position/cost metrics (turnover, trades, holding period, cost drag) are
-    derived from the positions and gross-vs-net returns.
+    Return-based metrics (Sharpe, Calmar, ann return, ann vol, max drawdown, hit
+    rate) come from QuantStats on the NET daily returns filtered to the IS window.
+    Position/cost metrics (average exposure, turnover, trades, holding period,
+    cost drag) are derived from the positions and gross-vs-net returns.
     """
     net_daily = res["daily_returns"]
     # Recover gross daily returns from the gross equity curve.
@@ -82,11 +82,13 @@ def _is_metrics(positions: pd.Series, res: dict, is_start: str, is_end: str) -> 
     return {
         # --- QuantStats, on net IS returns ---
         "sharpe": float(qs.stats.sharpe(net_is)),
+        "calmar": float(qs.stats.calmar(net_is)),
         "ann_return": float(qs.stats.cagr(net_is)),
         "ann_vol": float(qs.stats.volatility(net_is)),
         "max_drawdown": float(qs.stats.max_drawdown(net_is)),
         "hit_rate": float(qs.stats.win_rate(net_is)),
         # --- position / cost derived ---
+        "average_exposure": float((pos_is == 1.0).mean()),
         "turnover": float(abs_change_is.sum() / years) if years else float("nan"),
         "n_trades": int(len(trade_log_is)),
         "avg_holding_period": _avg_holding_period(pos_is),
