@@ -415,8 +415,8 @@ def run_cost_sensitivity(
     """Re-run OOS confirmation and the regime split at several transaction-cost levels.
 
     For each bps in ``bps_values`` a single cost function is built via
-    ``build_cost_fn(bps=bps)`` (the default annual expense ratio is left
-    unchanged; only bps varies) and passed to ``run_oos_confirmation`` and
+    ``build_cost_fn(bps=bps)`` (the annual expense ratio stays at its default of
+    0.0; only bps varies) and passed to ``run_oos_confirmation`` and
     ``run_regime_split`` -- reusing the existing pipeline, no backtest logic
     duplicated here. The same cost level applies to both the actual strategy and
     its exposure-matched random draws, so each percentile stays an apples-to-
@@ -436,7 +436,7 @@ def run_cost_sensitivity(
     """
     out: dict = {}
     for bps in bps_values:
-        cost_fn = costs.build_cost_fn(bps=bps)  # expense ratio unchanged (default)
+        cost_fn = costs.build_cost_fn(bps=bps)  # expense ratio at its default (0.0)
         oos = run_oos_confirmation(merged_df, winning_lookback, oos_end=oos_end, cost_fn=cost_fn)
         reg = run_regime_split(merged_df, winning_lookback, cost_fn=cost_fn)
         out[bps] = {

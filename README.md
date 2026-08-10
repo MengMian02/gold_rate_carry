@@ -105,10 +105,11 @@ The random benchmark instead generates many (500) random month-level position se
 the same total exposure as the actual strategy, and reports where the actual Sharpe falls
 within that distribution — isolating timing skill specifically.
 
-**Costs:** 8 bps one-way per trade (applied only when the position changes) plus GLD's
-0.40% annual expense ratio (applied continuously while holding, independent of trading
-activity) — kept as two separable components since they respond differently to changes in
-trading frequency versus holding duration.
+**Costs:** 8 bps one-way per trade, applied only when the position changes. No separate
+expense-ratio deduction is taken: the backtest's price series (`gld_adj_close`) is GLD's
+own traded price, which already embeds the fund's ongoing expense-ratio drag (the trust
+continuously sells gold holdings to pay the fee, so GLD's return already trails spot
+gold's), so charging it again would double-count.
 
 ---
 
@@ -189,11 +190,12 @@ skill specifically. These can and do disagree (§7.2).
 
 ## 5. Costs and real-vs-nominal returns
 
-**Costs.** Per-trade cost (8 bps) applies only on the specific dates the position changes;
-the expense-ratio drag (0.40%/year) applies continuously while holding, independent of
-trading. Position timing follows `position(t-1) × return(t)` throughout, so the
-expense-ratio drag begins accruing the day after a position opens, not the day it's
-decided.
+**Costs.** The only cost applied is a per-trade cost (8 bps one-way), on the specific dates
+the position changes. No separate expense-ratio drag is deducted: `gld_adj_close` — GLD's
+own traded price, used throughout — already reflects the fund's ongoing expense ratio (the
+trust continuously sells gold to pay it), so deducting it again would double-count.
+Position timing follows `position(t-1) × return(t)` throughout, so any cost is charged
+against the position actually held.
 
 **Real yield vs. nominal price convention.** `DFII10` is a real (inflation-adjusted)
 yield, while GLD's price and return series used throughout are nominal. At the ~20-day
@@ -216,13 +218,13 @@ rest on.
 
 | Lookback | Sharpe | Ann. return | Ann. vol | Max DD | Hit rate | Turnover | Trades | Avg hold (d) | Cost drag |
 |---|---|---|---|---|---|---|---|---|---|
-| 10 | 0.465 | 5.7% | 13.9% | −26.1% | 0.515 | 6.0 | 72 | 49.2 | 0.173 |
-| **20 (selected)** | **0.601** | **7.4%** | 13.3% | −16.9% | 0.519 | 6.2 | 74 | 43.6 | 0.207 |
-| 40 | 0.219 | 2.1% | 13.5% | −44.7% | 0.515 | 5.0 | 60 | 54.6 | 0.098 |
-| 60 | 0.522 | 6.5% | 13.9% | −21.8% | 0.524 | 3.3 | 40 | 88.3 | 0.132 |
+| 10 | 0.481 | 5.9% | 13.9% | −25.6% | 0.516 | 6.0 | 72 | 49.2 | 0.118 |
+| **20 (selected)** | **0.617** | **7.6%** | 13.3% | −16.9% | 0.522 | 6.2 | 74 | 43.6 | 0.147 |
+| 40 | 0.235 | 2.3% | 13.5% | −44.1% | 0.517 | 5.0 | 60 | 54.6 | 0.065 |
+| 60 | 0.539 | 6.8% | 13.9% | −21.8% | 0.526 | 3.3 | 40 | 88.3 | 0.071 |
 
 Selected by highest IS Sharpe: **N = 20**. The win over N = 60 is real but not dominant
-(0.601 vs. 0.522) — a narrow win among economically plausible neighbors is more consistent
+(0.617 vs. 0.539) — a narrow win among economically plausible neighbors is more consistent
 with genuine, moderately robust signal than a single spiking outlier would be.
 
 IS random-benchmark check: N=20 beat 473 of 500 exposure-matched random draws (**94.6th
@@ -232,16 +234,16 @@ percentile**).
 
 | Metric | Value |
 |---|---|
-| Sharpe | 0.636 |
-| Ann. return | 6.6% |
+| Sharpe | 0.656 |
+| Ann. return | 6.8% |
 | Ann. vol | 11.0% |
-| Max drawdown | −19.0% |
-| Hit rate | 0.543 |
+| Max drawdown | −18.8% |
+| Hit rate | 0.545 |
 | Trades | 49 |
 | Avg hold (d) | 50.4 |
-| Random-benchmark percentile | **36.2nd** (beat 181/500; random mean 0.711) |
+| Random-benchmark percentile | **36.2nd** (beat 181/500; random mean 0.731) |
 
-A Sharpe of 0.636 looks respectable in isolation, but falls *below* the exposure-matched
+A Sharpe of 0.656 looks respectable in isolation, but falls *below* the exposure-matched
 random benchmark's own mean — the pooled OOS result does not show genuine timing skill
 once exposure-driven dilution is controlled for.
 
@@ -249,23 +251,23 @@ once exposure-driven dilution is controlled for.
 
 | Metric | Regime 1 (2008–2021) | Regime 2 (2022–2024) |
 |---|---|---|
-| Sharpe | 0.589 | −0.043 |
-| Ann. return | 6.9% | −0.9% |
+| Sharpe | 0.607 | −0.026 |
+| Ann. return | 7.2% | −0.7% |
 | Ann. vol | 12.8% | 9.5% |
-| Max drawdown | −17.7% | −19.0% |
-| Hit rate | 0.529 | 0.514 |
+| Max drawdown | −17.2% | −18.8% |
+| Hit rate | 0.531 | 0.514 |
 | Trades | 80 | 20 |
 | Random-benchmark percentile | **98.2nd** (beat 491/500) | **8.8th** (beat 44/500) |
-| Random draws' mean Sharpe | 0.231 | 0.553 |
+| Random draws' mean Sharpe | 0.248 | 0.571 |
 
 ### 6.4 Block bootstrap significance (block = 21 days, 1,000 replicates, seed 42)
 
 | Period | Actual Sharpe | Bootstrap mean | 95% CI | P(Sharpe ≤ 0) |
 |---|---|---|---|---|
-| IS (2005–2016) | 0.601 | 0.615 | [0.067, 1.172] | 0.012 |
-| OOS (2017–2025) | 0.636 | 0.638 | [0.075, 1.246] | 0.012 |
-| Regime 1 (2008–2021) | 0.589 | 0.550 | [0.070, 1.082] | 0.013 |
-| Regime 2 (2022–2024) | −0.043 | 0.013 | [−0.886, 0.878] | 0.482 |
+| IS (2005–2016) | 0.617 | 0.631 | [0.083, 1.187] | 0.010 |
+| OOS (2017–2025) | 0.656 | 0.658 | [0.096, 1.265] | 0.011 |
+| Regime 1 (2008–2021) | 0.607 | 0.569 | [0.088, 1.100] | 0.011 |
+| Regime 2 (2022–2024) | −0.026 | 0.030 | [−0.867, 0.895] | 0.465 |
 
 ---
 

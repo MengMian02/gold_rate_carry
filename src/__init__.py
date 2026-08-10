@@ -8,7 +8,7 @@ Data pipeline (raw -> audited -> cleaned/merged):
 
 Strategy pipeline (signal -> backtest -> evaluate):
     signals.py       -> compute_signal + apply_monthly_rebalance
-    costs.py         -> build_cost_fn (transaction bps + expense ratio)
+    costs.py         -> build_cost_fn (transaction bps; expense ratio default 0.0)
     backtest.py      -> run_backtest (signal-agnostic equity curve + trade log)
     evaluate.py      -> parameter grid, OOS confirmation, regime split, block bootstrap
     report.py        -> self-contained HTML report (not yet implemented)

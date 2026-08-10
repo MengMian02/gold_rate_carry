@@ -7,10 +7,16 @@ index as positions, in the same units as the backtest's daily returns
 ``gross_daily`` directly.
 
 Two components are kept deliberately SEPARATE (not silently blended), because
-they behave differently and the study requires cost-sensitivity testing:
+they behave differently:
 
   1. transaction cost  -- one-way bps, only on dates the position changes.
   2. expense ratio     -- continuous annual ETF fee, charged every day held.
+     DEFAULT 0.0: the backtest's price series (gld_adj_close) is GLD's own traded
+     price, which ALREADY reflects the fund's ongoing expense-ratio drag (the
+     trust continuously sells gold holdings to pay the fee, which is why GLD's
+     return trails spot gold's). Deducting a separate expense ratio on top would
+     double-count it. The component is retained for reuse with a price series that
+     does NOT already embed fund fees.
 
 The returned object is callable (the summed drag) and, after being called, also
 exposes ``.transaction_costs`` and ``.expense_ratio_costs`` as separate series so
@@ -47,7 +53,7 @@ class CostFunction:
     def __init__(
         self,
         bps: float = 8.0,
-        annual_expense_ratio: float = 0.004,
+        annual_expense_ratio: float = 0.0,
         trading_days_per_year: int = _TRADING_DAYS_PER_YEAR,
     ) -> None:
         self.bps = bps
@@ -95,7 +101,7 @@ class CostFunction:
         )
 
 
-def build_cost_fn(bps: float = 8.0, annual_expense_ratio: float = 0.004) -> CostFunction:
+def build_cost_fn(bps: float = 8.0, annual_expense_ratio: float = 0.0) -> CostFunction:
     """Factory returning a configured, callable cost function.
 
     Parameters
@@ -105,8 +111,11 @@ def build_cost_fn(bps: float = 8.0, annual_expense_ratio: float = 0.004) -> Cost
         each rebalance. Default 8 bps (midpoint of the 5-10 bps range for liquid
         commodity ETFs). Configurable for cost-sensitivity testing.
     annual_expense_ratio : float
-        Annual ETF expense ratio as a fraction (default 0.004 = 0.40%, GLD's
-        published ratio), converted to a daily-equivalent drag applied while held.
+        Annual ETF expense ratio as a fraction, converted to a daily-equivalent
+        drag applied while held. DEFAULT 0.0: gld_adj_close (the traded price used
+        throughout this project) already reflects GLD's expense-ratio drag, so a
+        separate deduction would double-count it. Set this only for a price series
+        that does NOT already embed fund fees.
 
     Returns
     -------
