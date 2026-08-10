@@ -105,6 +105,7 @@ def _random_benchmark(
     is_end: str,
     n_random_draws: int,
     seed: int = _RANDOM_SEED,
+    cost_fn=None,
 ) -> dict:
     """Compare the actual strategy's Sharpe to random month-level position draws.
 
@@ -115,6 +116,10 @@ def _random_benchmark(
     the same way as the actual. Used for both the IS grid winner and the OOS
     confirmation, so the two are directly comparable.
     """
+    # cost_fn (default build_cost_fn()) applies to every draw, so the random
+    # draws carry the same cost assumptions as the actual at this cost level.
+    if cost_fn is None:
+        cost_fn = costs.build_cost_fn()
     prices = merged_df[_PRICE_COLUMN]
     idx = merged_df.index
     in_is = (idx >= pd.Timestamp(is_start)) & (idx <= pd.Timestamp(is_end))
@@ -138,7 +143,7 @@ def _random_benchmark(
         chosen_periods = set(month_arr[chosen])
         rand_pos = pd.Series(0.0, index=idx)
         rand_pos[in_is & day_months.isin(chosen_periods)] = 1.0
-        r = backtest.run_backtest(prices, rand_pos, cost_fn=costs.build_cost_fn())
+        r = backtest.run_backtest(prices, rand_pos, cost_fn=cost_fn)
         draws[i] = float(qs.stats.sharpe(r["daily_returns"].loc[is_start:is_end].fillna(0.0)))
 
     n_beaten = int((draws < actual_sharpe).sum())
@@ -216,6 +221,7 @@ def run_oos_confirmation(
     oos_end=None,
     n_random_draws: int = 500,
     seed: int = _RANDOM_SEED,
+    cost_fn=None,
 ) -> dict:
     """Out-of-sample confirmation of the IS-selected lookback.
 
@@ -235,8 +241,10 @@ def run_oos_confirmation(
     """
     if oos_end is None:
         oos_end = merged_df.index.max()
+    if cost_fn is None:
+        cost_fn = costs.build_cost_fn()
 
-    positions, res = _run_pipeline(merged_df, winning_lookback, costs.build_cost_fn())
+    positions, res = _run_pipeline(merged_df, winning_lookback, cost_fn)
     oos_metrics = _is_metrics(positions, res, oos_start, oos_end)
 
     random_benchmark = _random_benchmark(
@@ -247,6 +255,7 @@ def run_oos_confirmation(
         oos_end,
         n_random_draws,
         seed=seed,
+        cost_fn=cost_fn,
     )
 
     return {"oos_metrics": oos_metrics, "random_benchmark": random_benchmark}
@@ -259,6 +268,7 @@ def run_regime_split(
     regime_2=("2022-01-01", "2024-12-31"),
     n_random_draws: int = 500,
     seed: int = _RANDOM_SEED,
+    cost_fn=None,
 ) -> dict:
     """Compare the winning lookback across two date regimes.
 
@@ -274,13 +284,16 @@ def run_regime_split(
          "regime_2": {"metrics": {...}, "random_benchmark": {...}}}
     """
     # Run the actual strategy pipeline once; both regimes filter this same output.
-    positions, res = _run_pipeline(merged_df, winning_lookback, costs.build_cost_fn())
+    if cost_fn is None:
+        cost_fn = costs.build_cost_fn()
+    positions, res = _run_pipeline(merged_df, winning_lookback, cost_fn)
 
     def _one_regime(window) -> dict:
         start, end = window
         metrics = _is_metrics(positions, res, start, end)
         benchmark = _random_benchmark(
-            merged_df, positions, metrics["sharpe"], start, end, n_random_draws, seed=seed
+            merged_df, positions, metrics["sharpe"], start, end, n_random_draws,
+            seed=seed, cost_fn=cost_fn,
         )
         return {"metrics": metrics, "random_benchmark": benchmark}
 
@@ -388,3 +401,71 @@ def run_block_bootstrap_all_periods(
         )
         for name, (start, end) in _BOOTSTRAP_PERIODS.items()
     }
+
+
+# --------------------------------------------------------------------------
+# cost sensitivity
+# --------------------------------------------------------------------------
+def run_cost_sensitivity(
+    merged_df: pd.DataFrame,
+    winning_lookback: int,
+    bps_values=(5.0, 8.0, 10.0),
+) -> dict:
+    """Re-run OOS confirmation and the regime split at several transaction-cost levels.
+
+    For each bps in ``bps_values`` a single cost function is built via
+    ``build_cost_fn(bps=bps)`` (the default annual expense ratio is left
+    unchanged; only bps varies) and passed to ``run_oos_confirmation`` and
+    ``run_regime_split`` -- reusing the existing pipeline, no backtest logic
+    duplicated here. The same cost level applies to both the actual strategy and
+    its exposure-matched random draws, so each percentile stays an apples-to-
+    apples comparison at that cost level.
+
+    Returns a dict keyed by bps value, each with ``oos`` / ``regime_1`` /
+    ``regime_2`` sub-dicts of {sharpe, percentile}, plus a ``"summary"`` key
+    reporting whether the three directional conclusions (OOS underperforms
+    random, Regime 1 beats random, Regime 2 underperforms random) hold at every
+    bps tested. "Beats random" is taken as percentile > 50 (above the median
+    random draw); "underperforms" as percentile < 50.
+    """
+    out: dict = {}
+    for bps in bps_values:
+        cost_fn = costs.build_cost_fn(bps=bps)  # expense ratio unchanged (default)
+        oos = run_oos_confirmation(merged_df, winning_lookback, cost_fn=cost_fn)
+        reg = run_regime_split(merged_df, winning_lookback, cost_fn=cost_fn)
+        out[bps] = {
+            "oos": {
+                "sharpe": oos["oos_metrics"]["sharpe"],
+                "percentile": oos["random_benchmark"]["percentile"],
+            },
+            "regime_1": {
+                "sharpe": reg["regime_1"]["metrics"]["sharpe"],
+                "percentile": reg["regime_1"]["random_benchmark"]["percentile"],
+            },
+            "regime_2": {
+                "sharpe": reg["regime_2"]["metrics"]["sharpe"],
+                "percentile": reg["regime_2"]["random_benchmark"]["percentile"],
+            },
+        }
+
+    oos_underperforms = all(v["oos"]["percentile"] < 50 for v in out.values())
+    regime_1_beats = all(v["regime_1"]["percentile"] > 50 for v in out.values())
+    regime_2_underperforms = all(v["regime_2"]["percentile"] < 50 for v in out.values())
+    stable = oos_underperforms and regime_1_beats and regime_2_underperforms
+
+    out["summary"] = {
+        "bps_tested": list(bps_values),
+        "oos_underperforms_random_all_bps": oos_underperforms,
+        "regime_1_beats_random_all_bps": regime_1_beats,
+        "regime_2_underperforms_random_all_bps": regime_2_underperforms,
+        "all_conclusions_stable": stable,
+        "note": (
+            "All three directional conclusions (OOS underperforms random, "
+            "Regime 1 beats random, Regime 2 underperforms random) hold at every "
+            "bps value tested."
+            if stable
+            else "At least one directional conclusion changes across the tested "
+            "bps values -- inspect the per-bps percentiles."
+        ),
+    }
+    return out
