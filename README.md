@@ -277,7 +277,7 @@ IS, OOS, and Regime 1 are all bootstrap-distinguishable from zero — but OOS's 
 result should not be read as validation of timing skill. OOS's Sharpe is reliably positive
 largely because GLD trended upward over 2017–2025 and the strategy was long roughly half
 the time — a beta effect a randomly-timed strategy with the same exposure captures just as
-well, and in fact did slightly better (§7.2). The bootstrap test and the random-timing
+well, and in fact did slightly better (§6.2). The bootstrap test and the random-timing
 benchmark answer different questions and can disagree; only Regime 1 shows both a reliably
 positive Sharpe *and* genuine outperformance of random timing — the strongest evidence of
 real, mechanism-driven edge in this project.
@@ -286,7 +286,7 @@ Regime 2's failure is not merely "worse" — it is a different kind of result, a
 mechanism (§1) predicts. Its Sharpe is negative but not statistically distinguishable from
 zero given the regime's short window (36 months, 20 trades), and it underperformed random
 timing (8.8th percentile). Both facts are consistent with the discount-rate channel being
-overwhelmed by a separate, non-modeled driver once that driver became dominant — see §9 for
+overwhelmed by a separate, non-modeled driver once that driver became dominant — see §8 for
 independent evidence this is exactly what happened to gold's real-yield relationship after
 2022.
 
@@ -328,10 +328,9 @@ providing direct evidence for the competing demand channel named in §1 and §8.
 ## 9. Status and next steps
 
 **Completed:** data collection, audit, cleaning/merge, signal, costs, backtest engine, IS
-parameter selection, OOS confirmation, regime split, block bootstrap significance.
-
-**Pending:** final verdict and memo (`memo.md`), source note (`source_note.md`), a
-self-contained HTML report, cost-sensitivity testing across a range of bps assumptions.
+parameter selection, OOS confirmation, regime split, block bootstrap significance,
+cost-sensitivity testing, the memo (`memo.md`), the source note (`data/source_note.md`),
+and the self-contained HTML report (`result/report.html`).
 
 **Open questions for extension, not yet tested:**
 - Whether rebalancing more frequently than monthly (e.g., weekly) captures meaningful

@@ -25,6 +25,7 @@ data/merged.csv
 # Results: all generated on every run
 result/*
 !result/.gitkeep
+!result/report.html
 
 # Local working notes
 
