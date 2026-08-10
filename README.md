@@ -119,6 +119,13 @@ trading frequency versus holding duration.
 | GLD (OHLCV) | yfinance | Exchange-traded, standard ticker coverage |
 | DFII10 (10Y real yield) | FRED (manual CSV download) | A published Treasury/Fed statistic, not a tradeable instrument — not covered by yfinance; downloaded by hand and read from `data/raw/DFII10.csv` |
 
+**Raw data is not committed.** The raw series are intentionally excluded from this
+repository — both must be obtained locally before the notebook can run. GLD is fetched
+automatically via yfinance on first run and cached to `data/raw/gld_raw.csv`. DFII10 must be
+downloaded manually from FRED (<https://fred.stlouisfed.org/series/DFII10>) and saved to
+`data/raw/DFII10.csv`; `loaders.load_dfii10()` raises a clear error with these instructions
+if the file is missing.
+
 **Publication-date (T+1) alignment.** FRED's DFII10 is labeled by the date it describes,
 not the date it was published — a value dated day T is not actually knowable until T+1.
 Before merging, DFII10 is shifted forward by one row (relative to its own date-ordered
@@ -331,6 +338,8 @@ self-contained HTML report, cost-sensitivity testing across a range of bps assum
   engine and evaluation modules were built asset- and signal-agnostic specifically to
   support this without rewriting the core pipeline.
 
-**Environment:** Python virtual environment at `.venv`; no credentials required — DFII10 is
-obtained as a manually downloaded FRED CSV (`data/raw/DFII10.csv`) and GLD via yfinance. See
-`CLAUDE.md` for coding-agent working conventions used on this project.
+**Environment:** Python virtual environment at `.venv`; no credentials required. Raw data
+files are not committed to the repo — both must be obtained locally before the notebook can
+run: GLD is auto-fetched via yfinance on first run, and DFII10 must be manually downloaded
+from FRED and saved to `data/raw/DFII10.csv` (see §3 and `loaders.load_dfii10()`'s error
+message). See `CLAUDE.md` for coding-agent working conventions used on this project.

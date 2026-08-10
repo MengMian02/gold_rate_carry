@@ -7,3 +7,8 @@ series is refreshed.
 |---|---|---|---|---|---|
 | yfinance | yfinance package (ultimately Yahoo Finance) | GLD | Daily | 2026-08-08 | None material — standard OHLCV for a large, liquid ETF |
 | FRED | https://fred.stlouisfed.org/series/DFII10 | DFII10 | Daily (business days only) | 2026-08-08 | Published on a T+1 lag relative to the date it describes — shifted forward one row before use to avoid lookahead bias. Not published on days the bond market is closed; forward-filled onto GLD's trading calendar on those days, since no new value exists to report (see README §3). |
+
+**Note.** The raw data files are not committed to the repository — they must be obtained
+locally before running: GLD is auto-fetched via yfinance on first run (cached to
+`data/raw/gld_raw.csv`), and DFII10 must be manually downloaded from the FRED URL above and
+saved to `data/raw/DFII10.csv`.
