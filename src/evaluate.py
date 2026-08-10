@@ -410,6 +410,7 @@ def run_cost_sensitivity(
     merged_df: pd.DataFrame,
     winning_lookback: int,
     bps_values=(5.0, 8.0, 10.0),
+    oos_end: str = "2025-12-31",
 ) -> dict:
     """Re-run OOS confirmation and the regime split at several transaction-cost levels.
 
@@ -421,6 +422,11 @@ def run_cost_sensitivity(
     its exposure-matched random draws, so each percentile stays an apples-to-
     apples comparison at that cost level.
 
+    ``oos_end`` (default "2025-12-31", the project's locked OOS cutoff) is passed
+    through to ``run_oos_confirmation`` so the OOS window matches every other
+    result rather than silently extending to the last available date. Regime
+    windows are fixed dates and are unaffected.
+
     Returns a dict keyed by bps value, each with ``oos`` / ``regime_1`` /
     ``regime_2`` sub-dicts of {sharpe, percentile}, plus a ``"summary"`` key
     reporting whether the three directional conclusions (OOS underperforms
@@ -431,7 +437,7 @@ def run_cost_sensitivity(
     out: dict = {}
     for bps in bps_values:
         cost_fn = costs.build_cost_fn(bps=bps)  # expense ratio unchanged (default)
-        oos = run_oos_confirmation(merged_df, winning_lookback, cost_fn=cost_fn)
+        oos = run_oos_confirmation(merged_df, winning_lookback, oos_end=oos_end, cost_fn=cost_fn)
         reg = run_regime_split(merged_df, winning_lookback, cost_fn=cost_fn)
         out[bps] = {
             "oos": {

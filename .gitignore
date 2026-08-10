@@ -23,7 +23,6 @@ result/*
 !result/.gitkeep
 
 # Local working notes
-memo.md
 
 # Local Claude Code project instructions (not shared)
 /CLAUDE.md
