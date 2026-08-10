@@ -18,7 +18,7 @@ near-zero/falling-rate regime (2008–2021), but breaks down — and underperfor
 randomly-timed benchmark with matched exposure — in the 2022–2024 rate-hiking regime. This
 is consistent with, and corroborated by, independent research on gold's real-yield
 relationship weakening after 2022 as central-bank reserve buying became the dominant
-marginal driver of gold demand (§8, §9).
+marginal driver of gold demand (§7, §8).
 
 ---
 
@@ -37,14 +37,14 @@ between interest rates and the price level under the gold standard through an
 opportunity-cost mechanism: a shock that raises the real rate of return reduces gold's
 equilibrium relative price, operating through how gold is allocated between monetary and
 non-monetary uses. This project's discount-rate framing draws directly on that mechanism —
-see §9 for the full citation and further reading.
+see §8 for the full citation and further reading.
 
 **A named limitation, not a hidden one.** This strategy tests one specific, real channel
 (the discount-rate/opportunity-cost effect). It does not model, and does not claim to
 capture, other drivers of gold demand — most importantly, central-bank reserve
 diversification and geopolitical hedging, which independent research identifies as the
 dominant force behind gold's resilience despite rising real yields from 2022 onward (§8).
-The regime split in §7.3 shows this limitation appearing exactly where that research would
+The regime split in §6.3 shows this limitation appearing exactly where that research would
 predict it.
 
 ---
@@ -76,7 +76,7 @@ signal flip mid-month that reverses before the next rebalance is invisible to th
 not because the information wasn't there, but because it was never checked on a day that
 mattered. Monthly rebalancing happens to roughly match N=20's own timescale, which is a
 plausible reason more frequent rebalancing wouldn't help much — but this is untested, not
-demonstrated, and is flagged in §10 as the natural first robustness check for future work
+demonstrated, and is flagged in §9 as the natural first robustness check for future work
 (e.g., re-running at weekly rebalance to see whether the additional decision frequency
 improves results or mainly adds transaction cost).
 
@@ -161,7 +161,7 @@ The pipeline is split into single-responsibility, composable modules — raw dat
 read-only audit, alignment/merge, signal generation (general float weight output, not a
 hardcoded boolean), cost modeling, an asset- and signal-agnostic backtest engine, and
 evaluation. This keeps the strategy itself simple while the engine, cost model, and
-evaluation tools remain reusable for future strategies and assets (§10).
+evaluation tools remain reusable for future strategies and assets (§9).
 
 **Parameter selection (in-sample only).** Each candidate lookback runs the full pipeline
 on the full available data range (for correct signal burn-in), then results are filtered
@@ -184,7 +184,7 @@ ratio is reliably *above zero* — satisfiable purely through directional market
 (beta) if the underlying asset trended up over the period, with no timing skill required.
 The random exposure-matched benchmark tests whether the *specific dates chosen*
 outperform other, randomly-chosen date sets with the same exposure — isolating timing
-skill specifically. These can and do disagree (§7.2).
+skill specifically. These can and do disagree (§6.2).
 
 ---
 
@@ -202,7 +202,7 @@ yield, while GLD's price and return series used throughout are nominal. At the ~
 horizon the signal operates on, this is not a meaningful source of bias: expected
 inflation over such a short window is small relative to gold's own short-horizon
 volatility, so it does not distort the relationship being tested. It does matter for the
-headline cumulative and annualized return figures in §7, since realized inflation
+headline cumulative and annualized return figures in §6, since realized inflation
 compounds meaningfully over the multi-year windows and is embedded in every nominal GLD
 return — strategy and benchmark alike. Because both the strategy and every benchmark it's
 compared against hold the same nominal asset, this inflation drift enters both sides
@@ -321,7 +321,7 @@ regime break this project's Regime 1 / Regime 2 split is built around.
 https://www.gold.org/goldhub/research/central-banks. Reports that central banks purchased
 over 1,000 tonnes of gold annually in 2022, 2023, and 2024 — around a quarter of total gold
 demand in 2022–2023 — well above the 2010–2021 average of roughly 473 tonnes/year,
-providing direct evidence for the competing demand channel named in §1 and §8.
+providing direct evidence for the competing demand channel named in §1 and §7.
 
 ---
 
