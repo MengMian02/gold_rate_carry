@@ -42,7 +42,7 @@ _PRICE_COLUMN = "gld_adj_close"
 # Verdict shown in the Conclusion section. Kept in sync with memo.md's verdict.
 _VERDICT = "MONITOR"
 _VERDICT_TEXT = (
-    "The real-yield / duration signal delivered genuine, statistically "
+    "The real-yield signal delivered genuine, statistically "
     "distinguishable edge while falling real yields were the dominant driver of "
     "gold (Regime 1, 2008–2021: ~98th percentile against exposure-matched "
     "random timing), but it broke down in 2022–2024 as central-bank reserve "
