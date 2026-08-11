@@ -1,6 +1,6 @@
 # Memo
 
-This strategy tests the simple economic intuition that gold and interest-bearing assets are substitutes in portfolio construction. Gold generates no contractual cash flow, so higher real yields increase the opportunity cost of holding it relative to interest-bearing safe assets. Falling real yields may therefore support gold demand and prices, all else equal.
+This strategy tests a simple economic intuition: gold generates no contractual cash flow, so higher real yields increase the opportunity cost of holding it relative to interest-bearing safe assets. Falling real yields may therefore support gold demand and prices, all else equal.
 
 The real yield is the relevant rate since it isolates the opportunity cost channel specifically (Barsky & Summers, 1988). The nominal yield bundles the real yield and the inflation expectations, which affect the gold price in opposite directions. Using DFII10 separates the real-rate component from nominal yields; it does not eliminate inflation expectations or other drivers from gold returns. The strategy tests over a chosen lookback window, whether the fall in real yield is followed by gold returns that beat a randomly timed benchmark with matched market exposure.
 
