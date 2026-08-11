@@ -32,6 +32,7 @@ import quantstats as qs
 
 from . import backtest
 from . import costs
+from . import evaluate
 from . import signals
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -110,7 +111,45 @@ def _diagnostic_chart(merged_oos: pd.DataFrame, pos_oos: pd.Series,
 _diag_yield = "dfii10_aligned"
 
 
-def _top_section(pos_b64: str, diag_b64: str, oos_start: str, oos_end: str) -> str:
+def _metrics_table(oos_metrics: dict, oos_start: str, oos_end: str) -> str:
+    """Authoritative OOS summary computed with the project's own evaluate.py.
+
+    Rendered directly below the verdict and above the QuantStats tearsheet. Uses
+    the exact [oos_start, oos_end] window (the project's OOS_START/OOS_END), so it
+    is the reference figure for the stated OOS window even if the tearsheet below
+    trims the series slightly differently.
+    """
+    rows = [
+        ("Period", f"{oos_start} to {oos_end}"),
+        ("Net CAGR", f"{oos_metrics['ann_return'] * 100:.1f}%"),
+        ("Net Sharpe", f"{oos_metrics['sharpe']:.3f}"),
+        ("Max drawdown", f"{oos_metrics['max_drawdown'] * 100:.1f}%"),
+        ("Average exposure", f"{oos_metrics['average_exposure'] * 100:.1f}%"),
+        ("Turnover", f"{oos_metrics['turnover']:.2f}"),
+        ("Trades", f"{oos_metrics['n_trades']}"),
+    ]
+    body = "\n".join(
+        f'    <tr><td style="padding:4px 14px 4px 0;color:#555;">{label}</td>'
+        f'<td style="padding:4px 0;font-weight:600;">{value}</td></tr>'
+        for label, value in rows
+    )
+    return f"""
+  <h3 style="margin-top:22px;margin-bottom:6px;">Out-of-sample summary (project's own evaluation)</h3>
+  <table style="border-collapse:collapse;font-size:0.95em;margin:0 0 6px;">
+{body}
+  </table>
+  <p style="color:#555;font-size:0.85em;line-height:1.45;max-width:820px;margin:0;">
+    The table above uses this project's own evaluation functions over the exact
+    OOS_START/OOS_END window. The QuantStats tearsheet below may report a very slightly
+    different window and figures, since QuantStats can trim leading zero-return observations
+    from a series &mdash; treat the table above as authoritative for this project's stated
+    OOS window.
+  </p>
+"""
+
+
+def _top_section(pos_b64: str, diag_b64: str, metrics_html: str,
+                 oos_start: str, oos_end: str) -> str:
     return f"""
 <div style="max-width:1100px;margin:20px auto;padding:0 16px;
             font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#222;">
@@ -118,6 +157,7 @@ def _top_section(pos_b64: str, diag_b64: str, oos_start: str, oos_end: str) -> s
     <h2 style="margin:0 0 6px;">Conclusion &mdash; Verdict: {_VERDICT}</h2>
     <p style="margin:0;line-height:1.5;">{_VERDICT_TEXT}</p>
   </div>
+{metrics_html}
 
   <h3 style="margin-top:26px;">Strategy position over time (OOS {oos_start[:4]}&ndash;{oos_end[:4]})</h3>
   <img alt="Strategy position over time" style="width:100%;max-width:1100px;display:block;"
@@ -166,6 +206,11 @@ def generate_report(
     )
     res = backtest.run_backtest(prices, positions, cost_fn=costs.build_cost_fn())
 
+    # Authoritative OOS metrics via the project's own evaluation, computed on the
+    # SAME backtest output over the exact [oos_start, oos_end] window (no extra
+    # random-benchmark draws — just the metric set).
+    oos_metrics = evaluate._is_metrics(positions, res, oos_start, oos_end)
+
     strat = res["daily_returns"].loc[oos_start:oos_end].fillna(0.0)
     strat.name = "Real-yield timing (net)"
     bench = prices.pct_change().loc[oos_start:oos_end].fillna(0.0)
@@ -197,7 +242,8 @@ def generate_report(
     html = re.sub(r"<link[^>]*qtpylib\.io[^>]*>", "", html)
 
     # --- inject the conclusion + charts immediately after <body ...> ---
-    fragment = _top_section(pos_b64, diag_b64, oos_start, oos_end)
+    metrics_html = _metrics_table(oos_metrics, oos_start, oos_end)
+    fragment = _top_section(pos_b64, diag_b64, metrics_html, oos_start, oos_end)
     html, n = re.subn(r"<body[^>]*>", lambda m: m.group(0) + fragment, html, count=1)
     if n == 0:  # no <body> found (unexpected) -> prepend so nothing is lost
         html = fragment + html

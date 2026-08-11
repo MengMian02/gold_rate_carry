@@ -29,8 +29,10 @@ holding non-yielding gold becomes relatively more attractive; when real yields r
 opposite. This project isolates that channel specifically by using the *real* yield
 (`DFII10`, derived from TIPS) rather than the nominal 10-year yield, which would also embed
 inflation-expectation effects that move gold through a separate channel (gold as a partial
-inflation hedge) with the opposite sign — using the real yield nets that channel out before
-it reaches the signal, rather than requiring a multi-variable regression to separate the two.
+inflation hedge) with the opposite sign. Using DFII10 separates the real-rate component from
+nominal yields; it does not eliminate inflation expectations or other drivers from gold
+returns. Working directly with the real yield keeps the signal to a single series rather than
+requiring a multi-variable regression to separate the two.
 
 **Theoretical grounding.** Barsky and Summers (1988) explain the historical correlation
 between interest rates and the price level under the gold standard through an
@@ -210,6 +212,13 @@ own traded price, used throughout — already reflects the fund's ongoing expens
 trust continuously sells gold to pay it), so deducting it again would double-count.
 Position timing follows `position(t-1) × return(t)` throughout, so any cost is charged
 against the position actually held.
+
+**Flat periods earn 0%.** Flat periods (when the strategy holds no position) are treated as
+earning 0% return, for simplicity. This does not affect the random-benchmark comparisons
+reported throughout this project, since both the actual strategy and every random draw share
+the same convention. It does mean the strategy's absolute return and Sharpe figures are
+conservative relative to a cash-efficient implementation that earns a risk-free rate while
+flat, particularly for the 2022-2025 period when short-term rates were meaningfully positive.
 
 **Real yield vs. nominal price convention.** `DFII10` is a real (inflation-adjusted)
 yield, while GLD's price and return series used throughout are nominal. At the ~20-day
