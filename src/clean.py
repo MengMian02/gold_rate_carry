@@ -50,16 +50,17 @@ def clean_and_merge(gld_df: pd.DataFrame, dfii10_df: pd.DataFrame) -> pd.DataFra
     # ------------------------------------------------------------------
     # Step 1: DFII10 T+1 publication-lag alignment.
     #
-    # ASSUMPTION (stated, not fully verified): DFII10 for observation date T is
-    # published one business day later, so the most recent value publicly known
-    # ON date T is the one labeled T-1. We therefore shift the series forward by
-    # ONE ROW in its own date-ordered index -- "the previous available DFII10
-    # publication" -- NOT by a blind 24-hour / 1-calendar-day offset, so the
-    # shift stays correct across holidays and gaps in the series.
+    # DFII10 values are generally not available until after that day's bond and
+    # equity markets have already closed. This project applies a conservative
+    # one-row shift so a trading decision never uses same-day DFII10 data, only the
+    # prior day's published value. This reflects the general publication timing of
+    # Treasury constant-maturity series rather than a confirmed, sourced timestamp
+    # for DFII10 specifically. (If a specific FRED release-timing citation is added
+    # later, it should replace the "general publication timing" wording above.)
     #
-    # A reader may want to verify this single-business-day lag against FRED's
-    # actual DFII10 release calendar; it is a modeling assumption here, not an
-    # established fact.
+    # Mechanically the shift is by ONE ROW in the series' own date-ordered index --
+    # the previous available DFII10 publication -- NOT a blind 24-hour /
+    # 1-calendar-day offset, so it stays correct across holidays and gaps.
     # ------------------------------------------------------------------
     dfii_shifted = dfii["dfii10_value"].shift(1)
 

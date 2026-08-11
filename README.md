@@ -132,11 +132,13 @@ without any network access. To refresh them, GLD re-fetches automatically via yf
 (<https://fred.stlouisfed.org/series/DFII10>) and saved to `data/raw/DFII10.csv`;
 `loaders.load_dfii10()` raises a clear error with these instructions if that file is missing.
 
-**Publication-date (T+1) alignment.** FRED's DFII10 is labeled by the date it describes,
-not the date it was published — a value dated day T is not actually knowable until T+1.
-Before merging, DFII10 is shifted forward by one row (relative to its own date-ordered
-index, not a blind calendar-day shift, so it stays correct around holidays/gaps) so that
-any trading decision on day T uses only what was genuinely public by day T.
+**Publication-date (T+1) alignment.** DFII10 values are generally not available until after
+that day's bond and equity markets have already closed. This project applies a conservative
+one-row shift (relative to the series' own date-ordered index, not a blind calendar-day
+shift, so it stays correct around holidays/gaps) so a trading decision never uses same-day
+DFII10 data, only the prior day's published value. This reflects the general publication
+timing of Treasury constant-maturity series rather than a confirmed, sourced timestamp for
+DFII10 specifically.
 
 **Revision risk.** DFII10, like most FRED series, can in principle be revised after its
 initial release. Here this is immaterial: TIPS-derived real yields are computed from live
